@@ -1,0 +1,52 @@
+/* Estilos globales mínimos: lo demás vive en el tema de Mantine y en *.module.css */
+
+/* Inter variable, solo el subconjunto latino (incluye tildes y ñ) */
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --app-max-width: 640px;
+  --dock-h: 0px; /* alto de la barra inferior (navegación + descanso + entrenamiento), lo mide AppLayout */
+  --header-h: 56px;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+body {
+  min-height: 100dvh;
+  font-feature-settings: 'cv11', 'ss01';
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Números alineados en tablas, cronómetros y estadísticas */
+.tnum, table, input { font-variant-numeric: tabular-nums; }
+
+/* Sin flechas en inputs numéricos */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type='number'] { -moz-appearance: textfield; }
+
+/* Recharts: sin contorno de foco al tocar */
+.recharts-wrapper, .recharts-surface, .recharts-wrapper *:focus { outline: none !important; }
+
+@keyframes app-fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.app-enter { animation: app-fade-up 220ms ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-enter { animation: none; }
+}

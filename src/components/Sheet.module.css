@@ -1,0 +1,39 @@
+.content {
+  border-radius: var(--mantine-radius-xl) var(--mantine-radius-xl) 0 0;
+  max-width: var(--app-max-width);
+  margin: 0 auto;
+  max-height: 94dvh;
+  background: var(--mantine-color-body);
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  background: transparent;
+  padding: 18px var(--mantine-spacing-md) 6px;
+  position: relative;
+}
+
+.title {
+  font-weight: 700;
+  font-size: var(--mantine-font-size-lg);
+}
+
+.body {
+  padding: 4px var(--mantine-spacing-md) calc(var(--mantine-spacing-lg) + var(--safe-bottom));
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.handle {
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  width: 40px;
+  height: 5px;
+  margin-left: -20px;
+  border-radius: 999px;
+  background: var(--mantine-color-default-border);
+}

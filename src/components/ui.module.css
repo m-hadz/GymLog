@@ -1,0 +1,33 @@
+.stat {
+  background: var(--app-surface);
+  border-color: var(--app-border);
+  min-width: 0;
+}
+
+.statLabel {
+  letter-spacing: 0.04em;
+  font-size: 10.5px;
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  gap: var(--mantine-spacing-xs);
+}
+
+.section {
+  letter-spacing: 0.07em;
+}
+
+.thumb {
+  flex: none;
+  border: 1px solid var(--app-border);
+}
+
+.thumbImg {
+  background: #fff;
+
+  & img {
+    object-fit: cover;
+  }
+}
