@@ -37,8 +37,15 @@ create table if not exists exercises (
   updated_at   timestamptz not null default now()
 );
 
--- RLS activado y sin políticas: la llave pública (anon) no puede leer nada.
--- El backend usa la llave secreta, que se salta RLS.
+-- Seguridad:
+-- 1) Solo el backend (rol service_role, que usa la llave secreta) puede usar las tablas
+--    por la Data API. Es necesario en proyectos creados con "Automatically expose new
+--    tables" desactivado (lo recomendado); si estaba activado, no hace daño.
+-- 2) Se le quita el acceso a anon/authenticated por si el proyecto los otorga por defecto.
+-- 3) RLS activado y sin políticas, como segunda barrera.
+grant select, insert, update, delete on table workouts, templates, exercises to service_role;
+revoke all on table workouts, templates, exercises from anon, authenticated;
+
 alter table workouts  enable row level security;
 alter table templates enable row level security;
 alter table exercises enable row level security;

@@ -39,7 +39,9 @@ Vercel y Postgres gratuito en Supabase.
 ## Deploy (gratis, unos 15 minutos)
 
 ### 1. Base de datos en Supabase
-1. Crea un proyecto en <https://supabase.com> (plan Free).
+1. Crea un proyecto en <https://supabase.com> (plan Free). Región: **South America (São Paulo)**,
+   la misma donde corren las funciones de Vercel (`gru1` en `vercel.json`). Deja **Enable Data API**
+   activado; "Automatically expose new tables" puede ir desactivado (`schema.sql` da los permisos).
 2. **SQL Editor → New query**: pega el contenido de `schema.sql` y presiona **Run**.
 3. En **Project Settings → API Keys** copia la **Project URL** y una **secret key**
    (`sb_secret_...`). La llave antigua `service_role` también funciona.
