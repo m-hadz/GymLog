@@ -141,3 +141,50 @@ export function autoLinkCatalog(name) {
   }
   return bestScore >= 0.5 ? best : null;
 }
+
+// Convierte nombres de ejercicio importados en ids: reutiliza los existentes y crea
+// ejercicios propios para los nuevos, vinculándolos a una imagen del catálogo
+// (solo si hay un match claro por nombre).
+export function createNameResolver() {
+  const known = new Map();
+  for (const e of allExercises()) {
+    const k = normalize(e.name);
+    if (!known.has(k) || e.custom) known.set(k, e.id);
+  }
+  const created = new Map();
+  const resolve = (rawName) => {
+    const name = String(rawName).trim();
+    const k = normalize(name);
+    if (known.has(k)) return known.get(k);
+    const id = `c_${hashId(k)}`;
+    const linked = autoLinkCatalog(name);
+    created.set(id, {
+      id, name, category: guessCategory(name), body_part: linked?.bodyPart || guessBodyPart(name),
+      catalog_id: linked?.id || null, instructions: '', rest_seconds: null,
+    });
+    known.set(k, id);
+    return id;
+  };
+  return { resolve, created: () => [...created.values()] };
+}
+
+export function hashId(str) { // FNV-1a: ids deterministas, reimportar no duplica
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(36);
+}
+
+const PART_RULES = [
+  [/squat|leg press|lunge|leg curl|leg extension|calf|hip thrust|glute|deadlift|abductor|adductor|split/i, 'Piernas'],
+  [/curl|bicep|tricep|pushdown|skullcrusher|kickback|wrist/i, 'Brazos'],
+  [/row|pulldown|pull up|chin up|lat |pullover|back extension|shrug/i, 'Espalda'],
+  [/bench|chest|fly|crossover|dip|push up|pec/i, 'Pecho'],
+  [/shoulder|overhead|military|lateral raise|front raise|face pull|rear delt|arnold|external rotation/i, 'Hombros'],
+  [/crunch|plank|sit up|sit-up|ab wheel|leg raise|knee raise|pallof|roman chair/i, 'Core'],
+  [/run|cycling|bike|row(ing)? machine|jump|hop|skater|elliptical/i, 'Cardio'],
+];
+export function guessBodyPart(name) {
+  for (const [re, part] of PART_RULES) if (re.test(name)) return part;
+  return 'Otro';
+}
+

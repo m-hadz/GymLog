@@ -35,9 +35,14 @@ export function openModal(render) {
 }
 
 let toastTimer;
-export function toast(msg, ms = 2500) {
+// action opcional: { label: 'Deshacer', fn }
+export function toast(msg, ms = 2500, action = null) {
   const el = document.getElementById('toast');
-  el.textContent = msg;
+  el.replaceChildren(msg);
+  if (action) {
+    el.append(' ', h('button', { class: 'small', onclick: () => { el.hidden = true; action.fn(); } }, action.label));
+    ms = Math.max(ms, 5000);
+  }
   el.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, ms);

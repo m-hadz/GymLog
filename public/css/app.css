@@ -52,3 +52,15 @@ nav#tabs a.on { color:#fff; font-weight:600; }
 .cal .today { background:#fff; color:#000; }
 .chart { width:100%; height:auto; background:#1b1e23; border-radius:8px; }
 .ex-images { display:flex; gap:6px; } .ex-images img { width:50%; border-radius:8px; background:#fff; }
+/* v0.0.2: comparación en vivo, RPE, resumen */
+.sets tr.fb-pr td:first-child, .sets tr.fb-up td:first-child { box-shadow: inset 4px 0 0 var(--ok); }
+.sets tr.fb-eq td:first-child { box-shadow: inset 4px 0 0 #8b93a1; }
+.sets tr.fb-down td:first-child { box-shadow: inset 4px 0 0 #e5a13b; }
+.prtag { display:block; font-size:10px; font-weight:700; color:var(--ok); line-height:1; }
+.sets select.rpe { min-height:38px; padding:2px; width:52px; text-align:center; }
+.stats3 { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:10px 0; }
+.stats3 div { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px; }
+.stats3 b { display:block; font-size:20px; }
+.cmpbar { height:6px; border-radius:3px; background:#4b5563; margin:2px 0; } .cmpbar.now { background:var(--accent); }
+.up { color:var(--ok); } .down { color:#e5a13b; }
+#toast button { margin-left:8px; }

@@ -4,7 +4,7 @@ import { state, upsert } from '../data.js';
 import { allExercises, filterExercises, BODY_PARTS, CATEGORIES, loadCatalog, catalogSize, getExercise } from '../catalog.js';
 
 export function thumb(ex) {
-  if (ex?.images?.length) return h('img', { class: 'thumb', src: ex.images[0], loading: 'lazy', alt: '' });
+  if (ex?.images?.length) return h('img', { class: 'thumb', src: ex.images[0], loading: 'lazy', alt: '', crossorigin: 'anonymous' });
   return h('div', { class: 'thumb' }, (ex?.name || '?')[0].toUpperCase());
 }
 

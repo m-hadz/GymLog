@@ -2,7 +2,7 @@
 import { h, mount, fmtDate, fmtTime, fmtDuration, fmtNum, fmtSet, dayKey } from '../ui.js';
 import { state, remove, upsert, workoutById } from '../data.js';
 import { exerciseName } from '../catalog.js';
-import { computePRs, prCount, workoutVolume, workoutDuration, bestSet } from '../stats.js';
+import { computePRs, prCount, workoutVolume, workoutDuration, bestSet, isWorking, setVolume } from '../stats.js';
 import { startWorkout, templateFromWorkout, editorView } from './editor.js';
 
 function workoutCard(w, marks) {
@@ -37,6 +37,57 @@ export function historyView(root, query) {
     items.length ? items : h('p', { class: 'muted' }, 'Aún no hay entrenamientos. Ve a Entrenar o importa tu historial de Strong en Perfil.'));
 }
 
+// Entrenamiento anterior "equivalente": misma plantilla o, si no, mismo nombre.
+function previousOf(w) {
+  return state.workouts.find((x) => x.id !== w.id && x.started_at < w.started_at &&
+    ((w.template_id && x.template_id === w.template_id) || x.name === w.name));
+}
+
+const exVolume = (w, exId) => (w.exercises || []).filter((e) => e.exercise_id === exId)
+  .flatMap((e) => e.sets).filter(isWorking)
+  .reduce((a, s) => a + (s.weight ? setVolume(s) : s.reps || 0), 0);
+
+function summaryBlock(w, marks) {
+  const prev = previousOf(w);
+  const vol = workoutVolume(w);
+  const sets = w.exercises.reduce((a, e) => a + e.sets.filter(isWorking).length, 0);
+  let delta = null;
+  if (prev && workoutVolume(prev)) delta = Math.round((vol / workoutVolume(prev) - 1) * 100);
+  const prs = [];
+  marks?.forEach((labels, key) => {
+    const [ei, si] = key.split(':').map(Number);
+    const e = w.exercises[ei];
+    prs.push(h('li', {}, h('strong', {}, exerciseName(e.exercise_id, e.name)), ` · ${fmtSet(e.sets[si])} · ${labels.join(', ')}`));
+  });
+  const rows = prev ? [...new Set(w.exercises.map((e) => e.exercise_id))].map((exId) => {
+    const a = exVolume(prev, exId), b = exVolume(w, exId);
+    return a || b ? { exId, a, b, name: exerciseName(exId, w.exercises.find((e) => e.exercise_id === exId).name) } : null;
+  }).filter(Boolean) : [];
+  const max = Math.max(1, ...rows.flatMap((r) => [r.a, r.b]));
+  return [
+    h('div', { class: 'stats3' },
+      h('div', {}, h('b', {}, fmtDuration(workoutDuration(w))), h('span', { class: 'muted small' }, 'Duración')),
+      h('div', {}, h('b', {}, sets), h('span', { class: 'muted small' }, 'Series efectivas')),
+      h('div', {}, h('b', {}, `${fmtNum(vol, 0)} kg`),
+        h('span', { class: `small ${delta > 0 ? 'up' : delta < 0 ? 'down' : 'muted'}` },
+          delta == null ? 'Volumen' : `${delta > 0 ? '+' : ''}${delta} % vs anterior`))),
+    prs.length ? h('div', { class: 'card', style: 'border-color:var(--ok)' },
+      h('strong', {}, `🏆 ${prCount(marks)} récord${prCount(marks) > 1 ? 's' : ''}`), h('ul', { style: 'margin:6px 0 0;padding-left:18px' }, prs)) : null,
+    rows.length ? h('div', { class: 'card' },
+      h('div', { class: 'row between' }, h('strong', {}, 'Contra la última vez'),
+        h('span', { class: 'muted small' }, fmtDate(prev.started_at, { day: 'numeric', month: 'short' }))),
+      rows.map((r) => {
+        const d = r.a ? Math.round((r.b / r.a - 1) * 100) : null;
+        return h('div', { style: 'margin-top:8px' },
+          h('div', { class: 'row between small' }, h('span', {}, r.name),
+            h('span', { class: d > 0 ? 'up' : d < 0 ? 'down' : 'muted' }, d == null ? 'nuevo' : d === 0 ? 'igual' : `${d > 0 ? '+' : ''}${d} %`)),
+          h('div', { class: 'cmpbar', style: `width:${(r.a / max) * 100}%` }),
+          h('div', { class: 'cmpbar now', style: `width:${(r.b / max) * 100}%` }));
+      }),
+      h('p', { class: 'muted small', style: 'margin:6px 0 0' }, 'Gris: la vez anterior · Azul: hoy. Volumen = kg × reps (o reps si es sin peso).')) : null,
+  ];
+}
+
 export function workoutDetailView(root, id, query) {
   const w = workoutById(id);
   if (!w) { mount(root, h('p', {}, 'Entrenamiento no encontrado. '), h('a', { href: '#/history' }, 'Volver')); return; }
@@ -49,10 +100,7 @@ export function workoutDetailView(root, id, query) {
       h('p', { style: 'margin:4px 0 0' }, prs ? `Rompiste ${prs} récord${prs > 1 ? 's' : ''} personal${prs > 1 ? 'es' : ''}.` : 'Sin récords nuevos esta vez.')) : null,
     h('h1', {}, w.name),
     h('p', { class: 'muted' }, `${fmtTime(w.started_at)}, ${fmtDate(w.started_at)}`),
-    h('div', { class: 'row', style: 'gap:16px' },
-      h('span', {}, `⏱ ${fmtDuration(workoutDuration(w))}`),
-      h('span', {}, `🏋 ${fmtNum(workoutVolume(w), 0)} kg`),
-      h('span', {}, `🏆 ${prs} RP`)),
+    summaryBlock(w, marks),
     w.notes ? h('p', {}, w.notes) : null,
     w.exercises.map((e, ei) => {
       let n = 0;

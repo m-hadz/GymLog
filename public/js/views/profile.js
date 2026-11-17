@@ -1,11 +1,11 @@
 // Perfil: resumen, gráficos generales, importar/exportar y ajustes.
-import { h, mount, toast, download, fmtNum, dayKey } from '../ui.js';
+import { h, mount, toast, download, fmtNum, dayKey, num } from '../ui.js';
 import { state, upsert, getSettings, saveSettings, pendingCount, flush, refresh } from '../data.js';
 import { setKey, getKey, api } from '../api.js';
 import { loadCatalog, catalogSize } from '../catalog.js';
 import { weeklySummary, workoutVolume } from '../stats.js';
 import { barChart } from '../charts.js';
-import { analyzeStrongCSV, exportStrongCSV } from '../strong-csv.js';
+import { analyzeStrongCSV, exportStrongCSV, splitExisting } from '../strong-csv.js';
 
 export function profileView(root) {
   const settings = getSettings();
@@ -17,6 +17,9 @@ export function profileView(root) {
     .catch((e) => { status.textContent = `Servidor no disponible (${e.message}). Los cambios se guardan en el teléfono y se sincronizan después.`; });
 
   const fileInput = h('input', { type: 'file', accept: '.csv,text/csv', style: 'display:none', onchange: (e) => importFile(e.target.files[0]) });
+  const backupInput = h('input', { type: 'file', accept: '.json,application/json', style: 'display:none', onchange: (e) => restoreBackup(e.target.files[0]) });
+  const toggle = (key, label) => h('label', { class: 'row between', style: 'color:inherit;font-size:16px' }, label,
+    h('input', { type: 'checkbox', checked: settings[key], style: 'width:auto;min-height:0', onchange: (e) => { saveSettings({ [key]: e.target.checked }); toast('Guardado'); } }));
 
   mount(root,
     h('h1', {}, 'Perfil'),
@@ -37,7 +40,10 @@ export function profileView(root) {
       class: 'block',
       onclick: () => download(`gymlog-backup-${dayKey(new Date())}.json`,
         JSON.stringify({ workouts: state.workouts, templates: state.templates, exercises: state.exercises }, null, 1), 'application/json'),
-    }, 'Respaldo completo (JSON)'),
+    }, 'Descargar respaldo completo (JSON)'),
+    backupInput,
+    h('button', { class: 'block', onclick: () => backupInput.click() }, 'Restaurar respaldo (JSON)'),
+    h('p', { class: 'muted small' }, 'Restaurar combina el respaldo con lo que ya tienes: no borra nada.'),
 
     h('h2', {}, 'Ajustes'),
     h('label', {}, 'Descanso por defecto (segundos)'),
@@ -45,6 +51,19 @@ export function profileView(root) {
       type: 'number', inputmode: 'numeric', value: settings.defaultRest,
       onchange: (e) => { saveSettings({ defaultRest: Number(e.target.value) || 0 }); toast('Guardado'); },
     }),
+    toggle('rpe', 'Registrar RPE por serie'),
+    toggle('wake', 'Pantalla encendida durante el entrenamiento'),
+    h('div', { class: 'row' },
+      h('div', { style: 'width:110px' }, h('label', {}, 'Barra (kg)'),
+        h('input', { inputmode: 'decimal', value: fmtNum(settings.bar, 2), onchange: (e) => { saveSettings({ bar: num(e.target.value) || 20 }); toast('Guardado'); } })),
+      h('div', { class: 'grow' }, h('label', {}, 'Discos disponibles (kg)'),
+        h('input', {
+          value: settings.plates.map((p) => fmtNum(p, 2)).join('; '),
+          onchange: (e) => {
+            const plates = e.target.value.split(/[;\s]+/).map(num).filter((v) => v > 0);
+            if (plates.length) { saveSettings({ plates }); toast('Guardado'); }
+          },
+        }))),
     h('label', {}, 'Clave de acceso de este dispositivo'),
     h('div', { class: 'row' },
       h('input', { class: 'grow', type: 'password', value: getKey(), id: 'key-input', style: 'flex:1' }),
@@ -61,6 +80,8 @@ export function profileView(root) {
       const res = analyzeStrongCSV(await file.text());
       const msg = `Se encontraron ${res.workouts.length} entrenamientos (${res.setCount} series).\n` +
         `${res.alreadyImported ? `${res.alreadyImported} ya estaban importados y se actualizarán.\n` : ''}` +
+        `${res.duplicates ? `${res.duplicates} se omiten porque ya tienes un entrenamiento a esa misma hora.\n` : ''}` +
+        `${res.lbs ? 'Los pesos venían en libras y se convertirán a kg.\n' : ''}` +
         `${res.newExercises.length} ejercicios nuevos (${res.linked} con imagen del catálogo).\n\n¿Importar?`;
       if (!confirm(msg)) return;
       if (res.newExercises.length) upsert('exercises', res.newExercises);
@@ -69,6 +90,26 @@ export function profileView(root) {
       profileView(root);
     } catch (e) {
       alert(`No se pudo importar: ${e.message}`);
+    }
+  }
+
+  async function restoreBackup(file) {
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      if (!Array.isArray(data.workouts) || !Array.isArray(data.templates) || !Array.isArray(data.exercises)) {
+        throw new Error('No es un respaldo de GymLog');
+      }
+      const { fresh, duplicates } = splitExisting(data.workouts.filter((w) => w?.id && w.started_at));
+      if (!confirm(`El respaldo tiene ${data.workouts.length} entrenamientos, ${data.templates.length} plantillas y ${data.exercises.length} ejercicios propios.` +
+        `${duplicates ? `\n${duplicates} se omiten porque ya tienes uno a esa misma hora.` : ''}\n\n¿Restaurar?`)) return;
+      if (data.exercises.length) upsert('exercises', data.exercises);
+      if (data.templates.length) upsert('templates', data.templates);
+      for (let i = 0; i < fresh.length; i += 100) upsert('workouts', fresh.slice(i, i + 100));
+      toast('Respaldo restaurado');
+      profileView(root);
+    } catch (e) {
+      alert(`No se pudo restaurar: ${e.message}`);
     }
   }
 }

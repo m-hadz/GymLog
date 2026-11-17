@@ -1,4 +1,4 @@
-# GymLog — MVP v1
+# GymLog — v0.0.2
 
 Registro de entrenamientos personal, inspirado en el flujo de Strong y escrito desde cero.
 No necesita dependencias ni paso de build: JS puro en el frontend, funciones serverless en
@@ -21,8 +21,20 @@ Vercel y Postgres gratuito en Supabase.
   repeticiones). Todo gratis, sin muro PRO.
 - **Catálogo:** 800+ ejercicios con imágenes de [free-exercise-db](https://github.com/yuhonas/free-exercise-db)
   (dominio público), más tus ejercicios propios, que puedes vincular a una imagen del catálogo.
-- **Tus datos:** importar el CSV de Strong (sin duplicar si lo reimportas), exportar en
-  formato Strong y respaldo JSON.
+- **Tus datos:** importar el CSV de Strong (sin duplicar si lo reimportas; convierte libras a
+  kg), exportar en formato Strong, descargar y restaurar un respaldo JSON (se combina, no borra).
+
+### Nuevo en v0.0.2
+- **Funciona sin señal:** un service worker guarda la app, el catálogo y las imágenes vistas,
+  así que abre aunque el gimnasio no tenga internet.
+- **Comparación en vivo:** al marcar una serie se compara con la misma serie de la vez anterior
+  (borde verde = mejor, gris = igual, naranjo = menos) y avisa si es récord personal.
+- **Resumen al terminar:** duración, series efectivas, volumen con % frente a la última vez
+  (misma plantilla o mismo nombre), lista de récords y comparación por ejercicio.
+- **Calculadora de discos** en ejercicios con barra (barra y discos configurables en Perfil).
+- **RPE opcional** por serie (se activa en Perfil; se exporta en el CSV estilo Strong).
+- **Deshacer** al quitar un ejercicio del entrenamiento.
+- **Pantalla encendida** mientras entrenas (se puede apagar en Perfil).
 
 ## Deploy (gratis, unos 15 minutos)
 
@@ -78,6 +90,7 @@ api/*.js            Funciones de Vercel (una por recurso), todas delegan en lib/
 lib/router.js       Validación, auth por clave (header x-app-key) y CRUD genérico
 lib/store.js        Supabase vía REST (fetch, sin SDK) o archivo JSON en local
 schema.sql          3 tablas: workouts, templates, exercises (series en JSONB)
+public/sw.js        Service worker (app sin conexión)
 public/js/
   main.js           Arranque y enrutador por hash
   data.js           Estado + caché local + cola de sincronización (offline-first)
@@ -85,6 +98,7 @@ public/js/
   stats.js          1RM (Brzycki), volumen, récords, historial por ejercicio
   strong-csv.js     Importar/exportar CSV de Strong
   rest-timer.js     Temporizador de descanso
+  plates.js         Calculadora de discos
   charts.js         Gráficos SVG sin librerías
   views/            Pantallas: train, editor, history, exercises, picker, profile
 ```
@@ -95,9 +109,9 @@ public/js/
 Las estadísticas se calculan en el cliente: con miles de entrenamientos sigue siendo instantáneo
 y el backend se mantiene mínimo.
 
-## Ideas para v2
-- Superseries, RPE en el editor, ejercicios por tiempo/distancia (cardio).
-- Progresión automática (ej. +2,5 kg cuando completas todas las reps) y deloads.
-- Service worker para abrir la app sin conexión.
-- Medidas corporales y peso.
-- Carpetas y orden manual de plantillas.
+## Pendiente (ideas)
+- Peso corporal y ejercicios con lastre o asistidos (carga real).
+- Volumen semanal por músculo y rachas.
+- Ejercicios por tiempo con cronómetro; superseries.
+- Nota fija por ejercicio (asiento, agarre) y unir ejercicios duplicados.
+- Buscador en español para el catálogo; tema claro.

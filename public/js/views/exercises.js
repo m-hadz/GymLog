@@ -46,7 +46,7 @@ export function renderExerciseDetail(id, redraw) {
     if (!ex) return h('p', { class: 'muted' }, 'Este ejercicio ya no existe en el catálogo (se conserva tu historial).');
     const out = [];
     if (ex.images.length) {
-      const imgs = ex.images.slice(0, 2).map((src) => h('img', { src, alt: ex.name, loading: 'lazy' }));
+      const imgs = ex.images.slice(0, 2).map((src) => h('img', { src, alt: ex.name, loading: 'lazy', crossorigin: 'anonymous' }));
       out.push(h('div', { class: 'ex-images' }, imgs));
     }
     out.push(h('p', { class: 'muted' }, `${ex.bodyPart} · ${ex.category}${ex.level ? ` · ${ex.level}` : ''}`));

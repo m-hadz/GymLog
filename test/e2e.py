@@ -15,7 +15,7 @@ def shot(page, name):
 
 with sync_playwright() as p:
     browser = p.chromium.launch(channel="chrome")
-    ctx = browser.new_context(viewport={"width": 390, "height": 844})
+    ctx = browser.new_context(viewport={"width": 390, "height": 844}, service_workers="block")
     page = ctx.new_page()
     page.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
     page.on("console", lambda m: m.type == "error" and errors.append(f"console: {m.text}"))
@@ -88,6 +88,7 @@ with sync_playwright() as p:
     curl.locator("button.chk").first.click()
     curl = page.locator("main .card").nth(1)
     expect(curl.locator("input[inputmode=decimal]").first).to_have_value("18")
+    expect(curl.locator("tr.fb-eq")).to_have_count(1)   # igual que la vez anterior
     # recargar a mitad de entrenamiento: no se pierde
     page.reload()
     expect(page.locator("main .card")).to_have_count(2)
@@ -98,22 +99,48 @@ with sync_playwright() as p:
     shot(page, "done")
     print("ok active workout")
 
-    # 6. Guardar como plantilla y entrenar desde plantilla
+    # 6. Activar RPE, guardar como plantilla y entrenar desde plantilla
     page.click("text=Guardar como plantilla")
     expect(page.get_by_role("heading", name="Plantillas (1)")).to_be_visible()
+    page.click("#tabs >> text=Perfil")
+    page.locator("label", has_text="Registrar RPE").locator("input").check()
+    page.click("#tabs >> text=Entrenar")
     page.locator(".card >> text=Entrenar").first.click()
     expect(page.locator("main .card")).to_have_count(2)
-    page.locator("main .card").nth(0).locator("button.chk").first.click()  # usa placeholder 100x5
+    sq = page.locator("main .card").nth(0)
+    # calculadora de discos: 100 kg con barra de 20 -> 25 + 15 por lado
+    sq.locator("text=Discos").click()
+    expect(page.locator(".sheet")).to_contain_text("Por lado: 25 + 15 kg")
+    page.locator(".sheet >> text=Cerrar").click()
+    sq.locator("select.rpe").first.select_option("8")
+    sq.locator("button.chk").first.click()  # usa placeholder 100x5
+    sq = page.locator("main .card").nth(0)
+    expect(sq.locator("tr.fb-eq")).to_have_count(1)
+    sq.locator("text=+ Añadir serie").click()
+    sq = page.locator("main .card").nth(0)
+    sq.locator("input[inputmode=decimal]").nth(1).fill("110")
+    sq.locator("button.chk").nth(1).click()
+    expect(page.locator("#toast")).to_contain_text("Récord personal en Barbell Squat")
+    expect(page.locator("main .card").nth(0).locator(".prtag")).to_have_count(1)
+    # quitar ejercicio y deshacer
+    page.locator("main .card").nth(1).locator("button.danger").first.click()
+    expect(page.locator("main .card")).to_have_count(1)
+    page.locator("#toast >> text=Deshacer").click()
+    expect(page.locator("main .card")).to_have_count(2)
     page.click("text=Terminar")
     expect(page.get_by_text("¡Entrenamiento guardado!")).to_be_visible()
-    print("ok template workout")
+    expect(page.get_by_text("Contra la última vez")).to_be_visible()
+    expect(page.locator(".stats3")).to_contain_text("vs anterior")
+    expect(page.get_by_text("🏆 3 récords")).to_be_visible()  # 1RM + PESO + VOL.
+    shot(page, "summary")
+    print("ok template workout: feedback, PR, discos, RPE, deshacer, resumen")
 
     # 7. Editar plantilla: agregar serie y guardar
     page.click("#tabs >> text=Entrenar")
     page.locator(".card >> text=Editar").first.click()
     page.locator("main .card").nth(0).locator("text=+ Añadir serie").click()
     page.click("text=Guardar")
-    expect(page.get_by_text("2 × Barbell Squat")).to_be_visible()
+    expect(page.get_by_text("3 × Barbell Squat")).to_be_visible()  # 2 de la sesión (plantilla actualizada) + 1
     print("ok template edit")
 
     # 8. Editar un entrenamiento pasado
@@ -122,7 +149,7 @@ with sync_playwright() as p:
     page.click("text=Editar")
     page.locator("main .card").nth(0).locator("input[inputmode=numeric]").first.fill("6")
     page.click("text=Guardar")
-    expect(page.get_by_text("100 kg × 6")).to_be_visible()
+    expect(page.get_by_text("100 kg × 6").first).to_be_visible()
     print("ok edit past workout")
 
     # 9. Persistencia en servidor: contexto nuevo, misma clave
@@ -142,7 +169,17 @@ with sync_playwright() as p:
         page.click("text=Exportar CSV")
     csv = Path(dl.value.path()).read_text()
     assert csv.startswith("Date,Workout Name") and "Bicep Curl (Dumbbell)" in csv
+    assert re.search(r"Barbell Squat,1,100,6,,,,,8", csv), "falta el RPE en el CSV"
     print("ok export,", csv.count("\n"), "filas")
+    with page.expect_download() as dl:
+        page.click("text=Descargar respaldo completo")
+    backup = dl.value.path()
+    page.set_input_files("input[accept*=json]", str(backup))
+    expect(page.locator("#toast")).to_contain_text("Respaldo restaurado")
+    page.wait_for_timeout(500)
+    data = json.loads(open(os.environ["DATA_FILE"]).read())
+    assert len(data["workouts"]) == 6, len(data["workouts"])
+    print("ok backup restore sin duplicar")
 
     # 11. Modo offline: guardar sin servidor y sincronizar al volver
     ctx.route("**/api/**", lambda r: r.abort())
@@ -165,6 +202,34 @@ with sync_playwright() as p:
     data = json.loads(open(os.environ["DATA_FILE"]).read())
     assert len(data["workouts"]) == 7, len(data["workouts"])
     print("ok offline sync")
+
+    # 12. Strong en libras
+    page.click("#tabs >> text=Perfil")
+    page.set_input_files("input[accept*=csv]", str(FIX / "strong-lbs.csv"))
+    page.wait_for_timeout(500)
+    data = json.loads(open(os.environ["DATA_FILE"]).read())
+    lbs = [w for w in data["workouts"].values() if w["name"] == "Lbs test"][0]
+    assert lbs["exercises"][0]["sets"][0]["weight"] == 45.4, lbs
+    print("ok strong lbs -> kg")
+
+    # 13. Service worker: la app abre sin conexión
+    ctx2 = browser.new_context(viewport={"width": 390, "height": 844})
+    p2 = ctx2.new_page()
+    p2.on("dialog", lambda d: d.accept())
+    p2.goto(BASE)
+    p2.fill("input[type=password]", "test"); p2.click("text=Entrar")
+    expect(p2.get_by_role("heading", name="Entrenar")).to_be_visible()
+    p2.wait_for_function("navigator.serviceWorker.ready.then(() => true)")
+    p2.reload()
+    p2.wait_for_function("!!navigator.serviceWorker.controller")
+    p2.wait_for_timeout(500)
+    ctx2.set_offline(True)
+    p2.reload()
+    expect(p2.get_by_role("heading", name="Entrenar")).to_be_visible()
+    p2.click("#tabs >> text=Historial")
+    expect(p2.locator(".card").first).to_be_visible()
+    print("ok offline: la app abre sin conexión con", p2.locator(".card").count(), "entrenamientos")
+    ctx2.close()
 
     browser.close()
 

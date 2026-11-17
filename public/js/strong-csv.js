@@ -1,7 +1,7 @@
 // Importar el CSV que exporta Strong (Ajustes > Exportar datos) y exportar en el
 // mismo formato, para que tus datos nunca queden atrapados en ninguna app.
 import { state } from './data.js';
-import { allExercises, autoLinkCatalog, guessCategory, normalize, exerciseName } from './catalog.js';
+import { createNameResolver, normalize, exerciseName, hashId } from './catalog.js';
 import { num, dayKey } from './ui.js';
 
 export function parseCSV(text) {
@@ -30,11 +30,6 @@ export function parseCSV(text) {
   return rows;
 }
 
-function hash(str) { // FNV-1a, para ids deterministas (reimportar no duplica)
-  let h = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
-  return (h >>> 0).toString(36);
-}
 
 function parseDate(s) {
   const m = s.trim().match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
@@ -68,25 +63,11 @@ export function analyzeStrongCSV(text) {
     throw new Error('No parece un CSV de Strong (faltan columnas Date / Exercise Name / Reps)');
   }
 
-  // Resolver nombres de ejercicio -> id (existente, catálogo o nuevo propio)
-  const known = new Map();
-  for (const e of allExercises()) {
-    const k = normalize(e.name);
-    if (!known.has(k) || e.custom) known.set(k, e.id);
-  }
-  const newExercises = new Map();
-  const resolve = (name) => {
-    const k = normalize(name);
-    if (known.has(k)) return known.get(k);
-    const id = `c_${hash(k)}`;
-    const linked = autoLinkCatalog(name);
-    newExercises.set(id, {
-      id, name, category: guessCategory(name), body_part: linked?.bodyPart || 'Otro',
-      catalog_id: linked?.id || null, instructions: '', rest_seconds: null,
-    });
-    known.set(k, id);
-    return id;
-  };
+  const names = createNameResolver();
+  const resolve = names.resolve;
+  const lbs = C.weight >= 0 && /lb/.test(header[C.weight]);
+  const unitCol = header.findIndex((c) => c.includes('unit') || c.includes('unidad'));
+  let sawLbs = lbs;
 
   const workouts = new Map();
   let setCount = 0;
@@ -98,7 +79,12 @@ export function analyzeStrongCSV(text) {
     const orderRaw = get(C.order).toUpperCase();
     const type = /^\d+$/.test(orderRaw) || orderRaw === '' ? 'N' : ['W', 'D', 'F'].includes(orderRaw) ? orderRaw : null;
     if (!type) continue; // filas que no son series (p. ej. "Rest Timer")
-    const set = { type, weight: num(get(C.weight)) ?? 0, reps: num(get(C.reps)), done: true };
+    let weight = num(get(C.weight)) ?? 0;
+    if (lbs || (unitCol >= 0 && /lb/i.test(get(unitCol)))) {
+      weight = Math.round(weight * 0.45359237 * 10) / 10;
+      sawLbs = true;
+    }
+    const set = { type, weight, reps: num(get(C.reps)), done: true };
     const secs = num(get(C.seconds)); const dist = num(get(C.distance)); const rpe = num(get(C.rpe));
     if (secs) set.seconds = secs;
     if (dist) set.distance = dist;
@@ -110,7 +96,7 @@ export function analyzeStrongCSV(text) {
     if (!workouts.has(key)) {
       const dur = parseDuration(get(C.duration));
       workouts.set(key, {
-        id: `s_${hash(key)}`, name: wName, started_at: date.toISOString(),
+        id: `s_${hashId(key)}`, name: wName, started_at: date.toISOString(),
         ended_at: new Date(date.getTime() + (dur || 3600000)).toISOString(),
         notes: get(C.wnotes), template_id: null, exercises: [],
       });
@@ -126,15 +112,34 @@ export function analyzeStrongCSV(text) {
     setCount++;
   }
 
-  const list = [...workouts.values()];
-  const existing = new Set(state.workouts.map((w) => w.id));
+  const { fresh, alreadyImported, duplicates } = splitExisting([...workouts.values()]);
+  const created = names.created();
   return {
-    workouts: list,
-    newExercises: [...newExercises.values()],
+    workouts: fresh,
+    newExercises: created,
     setCount,
-    alreadyImported: list.filter((w) => existing.has(w.id)).length,
-    linked: [...newExercises.values()].filter((e) => e.catalog_id).length,
+    alreadyImported,
+    duplicates,
+    lbs: sawLbs,
+    linked: created.filter((e) => e.catalog_id).length,
   };
+}
+
+// Separa lo que ya existe: mismo id = se actualiza; misma hora de inicio con otro id
+// (p. ej. ya registrado a mano o importado de otra fuente) = se omite para no duplicar.
+export function splitExisting(list) {
+  const ids = new Set(state.workouts.map((w) => w.id));
+  const minute = (iso) => Math.round(new Date(iso).getTime() / 60000);
+  const minutes = new Map(state.workouts.map((w) => [minute(w.started_at), w.id]));
+  const fresh = [];
+  let alreadyImported = 0, duplicates = 0;
+  for (const w of list) {
+    if (ids.has(w.id)) { alreadyImported++; fresh.push(w); continue; }
+    const other = minutes.get(minute(w.started_at));
+    if (other && other !== w.id) { duplicates++; continue; }
+    fresh.push(w);
+  }
+  return { fresh, alreadyImported, duplicates };
 }
 
 const q = (v) => {

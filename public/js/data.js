@@ -125,7 +125,10 @@ export function setActive(w) { writeJSON('activeWorkout', w); }
 export function clearActive() { localStorage.removeItem('activeWorkout'); emit(); }
 
 // ---- Ajustes del dispositivo ----
-export const getSettings = () => ({ defaultRest: 120, ...readJSON('settings', {}) });
+export const getSettings = () => ({
+  defaultRest: 120, rpe: false, wake: true, bar: 20, plates: [25, 20, 15, 10, 5, 2.5, 1.25],
+  ...readJSON('settings', {}),
+});
 export const saveSettings = (s) => writeJSON('settings', { ...getSettings(), ...s });
 
 export const workoutById = (id) => state.workouts.find((w) => w.id === id);

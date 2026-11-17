@@ -5,7 +5,8 @@
 import { h, mount, num, toast, uid, fmtClock, fmtSet, fmtNum, toLocalInput, openModal } from '../ui.js';
 import { state, upsert, remove, getActive, setActive, clearActive, getSettings, templateById } from '../data.js';
 import { getExercise, exerciseName } from '../catalog.js';
-import { previousSets } from '../stats.js';
+import { previousSets, exerciseSessions, e1rm } from '../stats.js';
+import { openPlates } from '../plates.js';
 import { startRest, stopRest } from '../rest-timer.js';
 import { openPicker } from './picker.js';
 import { renderExerciseDetail } from './exercises.js';
@@ -68,6 +69,26 @@ export function templateFromWorkout(w, name = w.name) {
   };
 }
 
+// Compara una serie recién marcada con tu historial:
+// 'pr' = mejor que nunca, 'up' / 'eq' / 'down' = frente a la misma serie de la vez anterior.
+export function setFeedback(exId, s, prevSet, excludeId) {
+  if (s.type === 'W' || !s.reps) return null;
+  const sessions = exerciseSessions(state.workouts.filter((w) => w.id !== excludeId), exId);
+  const score = (x) => (x.weight ? e1rm(x.weight, x.reps) : x.reps || 0);
+  const cur = score(s);
+  if (!cur) return null;
+  const best = Math.max(0, ...sessions.flatMap((ss) => ss.working.filter((x) => !!x.weight === !!s.weight).map(score)));
+  if (best && cur > best * 1.001) return 'pr';
+  if (!prevSet || prevSet.type === 'W') return null;
+  const prev = score(prevSet);
+  if (!prev) return null;
+  const d = cur / prev - 1;
+  return d > 0.005 ? 'up' : d > -0.005 ? 'eq' : 'down';
+}
+
+const FB_LABEL = { pr: 'Récord', up: 'Mejor que la vez anterior', eq: 'Igual que la vez anterior', down: 'Menos que la vez anterior' };
+const RPE_OPTIONS = [6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10];
+
 const structure = (exs) => exs.map((e) => `${e.exercise_id}x${e.sets.length}`).join('|');
 
 export function editorView(root, { mode, doc, onDone }) {
@@ -96,7 +117,7 @@ export function editorView(root, { mode, doc, onDone }) {
     if (pending && !confirm(`Hay ${pending} serie(s) sin completar. Se descartarán. ¿Terminar?`)) return;
     const final = JSON.parse(JSON.stringify(doc));
     final.exercises = final.exercises
-      .map((e) => ({ ...e, sets: e.sets.filter((s) => s.done).map(({ target, ...s }) => s) }))
+      .map((e) => ({ ...e, sets: e.sets.filter((s) => s.done).map(({ target, fb, ...s }) => s) }))
       .filter((e) => e.sets.length);
     if (!final.exercises.length) {
       if (confirm('No completaste ninguna serie. ¿Descartar el entrenamiento?')) {
@@ -189,9 +210,9 @@ export function editorView(root, { mode, doc, onDone }) {
       const ph = p || s.target || {};
       const cells = [
         h('td', {}, h('button', {
-          class: 'settype small', title: TYPE_HELP[s.type || 'N'],
-          onclick: () => { s.type = TYPES[(TYPES.indexOf(s.type || 'N') + 1) % TYPES.length]; persist(); render(); },
-        }, label)),
+          class: 'settype small', title: s.fb ? FB_LABEL[s.fb] : TYPE_HELP[s.type || 'N'],
+          onclick: () => { s.type = TYPES[(TYPES.indexOf(s.type || 'N') + 1) % TYPES.length]; delete s.fb; persist(); render(); },
+        }, label, s.fb === 'pr' ? h('span', { class: 'prtag' }, 'PR') : null)),
         h('td', {}, h('button', {
           class: 'prev',
           onclick: () => { if (p) { s.weight = p.weight; s.reps = p.reps; persist(); render(); } },
@@ -205,6 +226,12 @@ export function editorView(root, { mode, doc, onDone }) {
           oninput: (e) => { s.reps = num(e.target.value); persist(); },
         })),
       ];
+      if (settings.rpe && !isTemplate) {
+        cells.push(h('td', {}, h('select', {
+          class: 'rpe', title: 'RPE (esfuerzo, 10 = al fallo)',
+          onchange: (e) => { if (e.target.value) s.rpe = Number(e.target.value); else delete s.rpe; persist(); },
+        }, h('option', { value: '' }, '–'), RPE_OPTIONS.map((v) => h('option', { value: v, selected: s.rpe === v }, fmtNum(v))))));
+      }
       if (isActive) {
         cells.push(h('td', {}, h('button', {
           class: `chk${s.done ? ' on' : ''}`,
@@ -215,9 +242,12 @@ export function editorView(root, { mode, doc, onDone }) {
               if (s.reps == null) { toast('Ingresa las repeticiones'); return; }
               s.weight ??= 0;
               s.done = true;
-              startRest(restFor(ex));
+              s.fb = setFeedback(ex.exercise_id, s, p, doc.id);
+              if (s.fb === 'pr') toast(`🏆 Récord personal en ${exerciseName(ex.exercise_id, ex.name)}`);
+              startRest(s.type === 'W' ? Math.min(60, restFor(ex)) : restFor(ex));
             } else {
               s.done = false;
+              delete s.fb;
             }
             persist(); render();
           },
@@ -227,20 +257,31 @@ export function editorView(root, { mode, doc, onDone }) {
         class: 'small danger', title: 'Eliminar serie',
         onclick: () => { ex.sets.splice(si, 1); persist(); render(); },
       }, '✕')));
-      return h('tr', { class: s.done && isActive ? 'done' : '' }, cells);
+      return h('tr', { class: `${s.done && isActive ? 'done' : ''} ${s.fb ? `fb-${s.fb}` : ''}` }, cells);
     });
 
     return h('div', { class: 'card' },
       h('div', { class: 'row between' },
         h('a', { href: '#', class: 'grow', style: 'font-weight:700', onclick: (e) => { e.preventDefault(); openModal((close) => [h('button', { onclick: close }, '✕ Cerrar'), renderExerciseDetail(ex.exercise_id)]); } },
           exerciseName(ex.exercise_id, ex.name)),
+        isBarbell(ex) && !isTemplate ? h('button', {
+          class: 'small', title: 'Calculadora de discos',
+          onclick: () => {
+            const next = ex.sets.find((x) => !x.done && x.type !== 'W') || ex.sets[0];
+            openPlates(next?.weight ?? next?.target?.weight ?? prev[0]?.weight);
+          },
+        }, 'Discos') : null,
         h('button', { class: 'small', onclick: () => move(-1) }, '↑'),
         h('button', { class: 'small', onclick: () => move(1) }, '↓'),
         h('button', {
           class: 'small danger',
           onclick: () => {
-            if (ex.sets.some((s) => s.done && isActive) && !confirm('¿Quitar este ejercicio y sus series?')) return;
-            doc.exercises.splice(ei, 1); persist(); render();
+            const [removed] = doc.exercises.splice(ei, 1);
+            persist(); render();
+            toast(`Quitaste ${exerciseName(removed.exercise_id, removed.name)}`, 5000, {
+              label: 'Deshacer',
+              fn: () => { doc.exercises.splice(Math.min(ei, doc.exercises.length), 0, removed); persist(); render(); },
+            });
           },
         }, '✕')),
       isTemplate || isActive ? h('div', { class: 'row small muted', style: 'margin-top:4px' }, 'Descanso:',
@@ -254,7 +295,7 @@ export function editorView(root, { mode, doc, onDone }) {
         oninput: (e) => { ex.notes = e.target.value; persist(); },
       }) : null,
       h('table', { class: 'sets' },
-        h('tr', {}, h('th', {}, 'Serie'), h('th', {}, 'Anterior'), h('th', {}, 'kg'), h('th', {}, 'Reps'), isActive ? h('th', {}, '✓') : null, h('th', {})),
+        h('tr', {}, h('th', {}, 'Serie'), h('th', {}, 'Anterior'), h('th', {}, 'kg'), h('th', {}, 'Reps'), settings.rpe && !isTemplate ? h('th', {}, 'RPE') : null, isActive ? h('th', {}, '✓') : null, h('th', {})),
         rows),
       h('button', {
         class: 'block small',
@@ -292,8 +333,31 @@ export function editorView(root, { mode, doc, onDone }) {
   return () => clearInterval(clockTimer);
 }
 
+function isBarbell(ex) {
+  const e = getExercise(ex.exercise_id);
+  return e?.category === 'Barra' || /barbell|barra\b/i.test(exerciseName(ex.exercise_id, ex.name));
+}
+
+// Mantiene la pantalla encendida mientras hay un entrenamiento en curso (si el navegador lo permite).
+let wakeLock = null;
+async function keepAwake(on) {
+  try {
+    if (on && getSettings().wake && 'wakeLock' in navigator && !wakeLock) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } else if (!on && wakeLock) {
+      await wakeLock.release();
+      wakeLock = null;
+    }
+  } catch { /* no soportado o pestaña en segundo plano */ }
+}
+const onVisible = () => { if (document.visibilityState === 'visible' && getActive()) keepAwake(true); };
+
 export function activeWorkoutView(root) {
   const doc = getActive();
   if (!doc) { location.hash = '#/train'; return; }
-  return editorView(root, { mode: 'active', doc });
+  keepAwake(true);
+  document.addEventListener('visibilitychange', onVisible);
+  const stop = editorView(root, { mode: 'active', doc });
+  return () => { stop(); keepAwake(false); document.removeEventListener('visibilitychange', onVisible); };
 }
