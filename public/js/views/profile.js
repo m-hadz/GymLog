@@ -3,15 +3,40 @@ import { h, mount, toast, download, fmtNum, dayKey, num } from '../ui.js';
 import { state, upsert, getSettings, saveSettings, pendingCount, flush, refresh } from '../data.js';
 import { setKey, getKey, api } from '../api.js';
 import { loadCatalog, catalogSize } from '../catalog.js';
-import { weeklySummary, workoutVolume } from '../stats.js';
-import { barChart } from '../charts.js';
+import { weeklySummary } from '../stats.js';
+import { barChart, chartCard, rangeChips, vol, volAxis, num as fnum, dateShort } from '../charts.js';
 import { analyzeStrongCSV, exportStrongCSV, splitExisting } from '../strong-csv.js';
+
+let profileRange = 12;
+const PROFILE_RANGES = [[12, '12 semanas'], [26, '6 meses'], [52, '1 año']];
+
+function weeklyCharts(weeks, rerender) {
+  const label = (d) => `Semana del ${dateShort(d)}`;
+  const bars = (key) => weeks.map((w, i) => ({ date: w.date, value: w[key], label: label(w.date), partial: i === weeks.length - 1 }));
+  const done = weeks.slice(0, -1); // semanas completas
+  const avg = (key) => (done.length ? done.reduce((a, w) => a + w[key], 0) / done.length : 0);
+  const now = weeks.at(-1);
+  const times = (v) => `${fnum(v, ',~f')} ${v === 1 ? 'entrenamiento' : 'entrenamientos'}`;
+  return [
+    rangeChips(PROFILE_RANGES, profileRange, (v) => { profileRange = v; rerender(); }),
+    chartCard({
+      title: 'Entrenamientos por semana',
+      sub: `Promedio: ${fnum(avg('count'))} por semana`,
+      value: `${now.count}`, delta: { dir: 'flat', text: 'esta semana' },
+      chart: barChart({ bars: bars('count'), format: times, axisFormat: (v) => fnum(v, ',~f'), integer: true, title: 'Entrenamientos por semana' }),
+    }),
+    chartCard({
+      title: 'Volumen por semana',
+      sub: `Promedio: ${vol(avg('volume'))} por semana · kg × reps`,
+      value: vol(now.volume), delta: { dir: 'flat', text: 'esta semana' },
+      chart: barChart({ bars: bars('volume'), format: vol, axisFormat: volAxis, title: 'Volumen por semana' }),
+    }),
+  ];
+}
 
 export function profileView(root) {
   const settings = getSettings();
-  const weeks = weeklySummary(state.workouts, 12);
-  const label = (d) => d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
-  const totalVol = state.workouts.reduce((a, w) => a + workoutVolume(w), 0);
+  const weeks = weeklySummary(state.workouts, profileRange);
   const status = h('p', { class: 'muted small' }, 'Comprobando servidor…');
   api('GET', 'health').then((r) => { status.textContent = `Servidor OK · almacenamiento: ${r.storage} · catálogo: ${catalogSize()} ejercicios`; })
     .catch((e) => { status.textContent = `Servidor no disponible (${e.message}). Los cambios se guardan en el teléfono y se sincronizan después.`; });
@@ -23,13 +48,10 @@ export function profileView(root) {
 
   mount(root,
     h('h1', {}, 'Perfil'),
-    h('p', {}, h('strong', {}, `${state.workouts.length} entrenamientos`), ` · ${fmtNum(totalVol / 1000, 1)} t levantadas en total`),
+    h('p', {}, h('strong', {}, `${state.workouts.length} entrenamientos`)),
     pendingCount() ? h('p', { class: 'muted' }, `${pendingCount()} cambio(s) sin sincronizar${state.syncError ? ` (${state.syncError})` : ''} `,
       h('button', { class: 'small', onclick: () => flush() }, 'Reintentar')) : null,
-    h('h3', {}, 'Entrenamientos por semana'),
-    barChart(weeks.map((w) => ({ label: label(w.date), y: w.count })), ''),
-    h('h3', {}, 'Volumen por semana'),
-    barChart(weeks.map((w) => ({ label: label(w.date), y: w.volume })), 'kg'),
+    weeklyCharts(weeks, () => profileView(root)),
 
     h('h2', {}, 'Datos'),
     fileInput,

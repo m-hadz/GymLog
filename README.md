@@ -1,4 +1,4 @@
-# GymLog — v0.0.2
+# GymLog — v0.0.3
 
 Registro de entrenamientos personal, inspirado en el flujo de Strong y escrito desde cero.
 No necesita dependencias ni paso de build: JS puro en el frontend, funciones serverless en
@@ -24,7 +24,16 @@ Vercel y Postgres gratuito en Supabase.
 - **Tus datos:** importar el CSV de Strong (sin duplicar si lo reimportas; convierte libras a
   kg), exportar en formato Strong, descargar y restaurar un respaldo JSON (se combina, no borra).
 
-### Nuevo en v0.0.2
+### Nuevo en v0.0.3
+- **Gráficos rehechos con d3** (incluido en `public/vendor/`, funciona sin conexión): línea con área
+  tenue, eje y grilla limpios, etiqueta del último valor y de la mejor marca, tooltip con crosshair
+  al tocar o arrastrar, variación en el periodo y tabla "Ver datos" en cada gráfico.
+- **Filtros de periodo:** 1M / 3M / 6M / 1A / Todo en cada ejercicio; 12 semanas / 6 meses / 1 año en Perfil.
+- **Ejercicio:** 1RM estimado, peso máximo y volumen por sesión. Se quitó "repeticiones totales"
+  (redundante con el 1RM); en ejercicios sin peso se muestra "máx. repeticiones en una serie".
+- **Perfil:** entrenamientos y volumen por semana con promedio, semana en curso marcada aparte.
+
+### v0.0.2
 - **Funciona sin señal:** un service worker guarda la app, el catálogo y las imágenes vistas,
   así que abre aunque el gimnasio no tenga internet.
 - **Comparación en vivo:** al marcar una serie se compara con la misma serie de la vez anterior

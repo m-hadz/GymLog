@@ -3,7 +3,7 @@ import { h, mount, fmtDate, fmtNum, fmtSet, fmtTime } from '../ui.js';
 import { state, remove } from '../data.js';
 import { getExercise, loadCatalog } from '../catalog.js';
 import { exerciseSessions, exerciseRecords, computePRs, e1rm } from '../stats.js';
-import { lineChart } from '../charts.js';
+import { lineChart, chartCard, deltaOf, rangeChips, kg, kgAxis, num } from '../charts.js';
 import { exerciseList, openExerciseForm } from './picker.js';
 
 const filters = { q: '', bodyPart: '', category: '' };
@@ -25,6 +25,8 @@ export function exerciseDetailView(root, id) {
 }
 
 let lastTab = 'about';
+let chartRange = 'all';
+const CHART_RANGES = [['1m', '1M', 31], ['3m', '3M', 92], ['6m', '6M', 183], ['1y', '1A', 366], ['all', 'Todo', null]];
 
 export function renderExerciseDetail(id, redraw) {
   const ex = getExercise(id);
@@ -98,15 +100,31 @@ export function renderExerciseDetail(id, redraw) {
 
   function charts() {
     if (!sessions.length) return h('p', { class: 'muted' }, 'Sin datos todavía.');
+    const range = CHART_RANGES.find((r) => r[0] === chartRange) || CHART_RANGES.at(-1);
+    const since = range[2] ? Date.now() - range[2] * 864e5 : 0;
+    const sess = sessions.filter((s) => new Date(s.workout.started_at).getTime() >= since);
+    const chips = rangeChips(CHART_RANGES.map(([k, l]) => [k, l]), chartRange, (v) => { chartRange = v; show('charts'); });
+    if (!sess.length) return [chips, h('p', { class: 'muted' }, 'No hay sesiones en este periodo.')];
+    const pt = (s, value, label) => ({ date: new Date(s.workout.started_at), value, label });
+    const series = (n) => `${n} ${n === 1 ? 'serie' : 'series'}`;
+    const card = (title, points, format, axisFormat) => chartCard({
+      title, sub: `${points.length} ${points.length === 1 ? 'sesión' : 'sesiones'}`,
+      value: format(points.at(-1).value), delta: deltaOf(points, format),
+      chart: lineChart({ points, format, axisFormat, title }),
+    });
     const weighted = sessions.some((s) => s.maxWeight > 0);
-    const block = (title, pts, unit) => [h('h3', {}, title), lineChart(pts, unit)];
-    if (!weighted) return block('Total de repeticiones por sesión', sessions.map((s) => ({ x: s.workout.started_at, y: s.totalReps })), 'reps');
-    const ws = sessions.filter((s) => s.best);
-    return [
-      block('Mejor serie (1RM estimado)', ws.map((s) => ({ x: s.workout.started_at, y: Math.round(s.bestE1rm * 10) / 10 })), 'kg'),
-      block('Peso máximo', ws.map((s) => ({ x: s.workout.started_at, y: s.maxWeight })), 'kg'),
-      block('Volumen total por sesión', ws.map((s) => ({ x: s.workout.started_at, y: s.volume })), 'kg'),
-      block('Repeticiones totales por sesión', ws.map((s) => ({ x: s.workout.started_at, y: s.totalReps })), 'reps'),
+    if (!weighted) {
+      const reps = (v) => `${num(v, ',~f')} reps`;
+      return [chips, card('Máx. repeticiones en una serie',
+        sess.filter((s) => s.working.length).map((s) => pt(s, Math.max(...s.working.map((x) => x.reps || 0)), series(s.working.length))),
+        reps, (v) => num(v, ',~f'))];
+    }
+    const ws = sess.filter((s) => s.best);
+    const repsAtMax = (s) => Math.max(...s.working.filter((x) => (x.weight || 0) === s.maxWeight).map((x) => x.reps || 0));
+    return [chips,
+      card('Mejor serie (1RM estimado)', ws.map((s) => pt(s, Math.round(s.bestE1rm * 10) / 10, `Mejor serie: ${fmtSet(s.best)}`)), kg, kgAxis),
+      card('Peso máximo', ws.map((s) => pt(s, s.maxWeight, `${fmtNum(s.maxWeight)} kg × ${repsAtMax(s)}`)), kg, kgAxis),
+      card('Volumen por sesión', ws.map((s) => pt(s, s.volume, s.working.length === 1 ? '1 serie efectiva' : `${s.working.length} series efectivas`)), kg, kgAxis),
     ];
   }
 

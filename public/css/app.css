@@ -64,3 +64,31 @@ nav#tabs a.on { color:#fff; font-weight:600; }
 .cmpbar { height:6px; border-radius:3px; background:#4b5563; margin:2px 0; } .cmpbar.now { background:var(--accent); }
 .up { color:var(--ok); } .down { color:#e5a13b; }
 #toast button { margin-left:8px; }
+/* v0.0.3: gráficos */
+.chips { display:flex; gap:6px; margin:10px 0 6px; flex-wrap:wrap; }
+.chip { min-height:34px; padding:4px 14px; border-radius:999px; font-size:14px; background:transparent; }
+.chip.on { background:#eceae6; color:#111; border-color:#eceae6; font-weight:600; }
+.viz-card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 14px 6px; margin:10px 0 14px; }
+.viz-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:6px; }
+.viz-head h3 { margin:0; font-size:15px; font-weight:600; }
+.viz-figure { text-align:right; flex:none; }
+.viz-value { font-size:24px; font-weight:650; line-height:1.1; }
+.viz-delta { font-size:12px; color:var(--muted); margin-top:2px; }
+.viz-delta.up { color:#0ca30c; } .viz-delta.down { color:#e66767; }
+.viz { position:relative; outline:none; }
+.viz:focus-visible { box-shadow:0 0 0 2px var(--accent); border-radius:8px; }
+.viz-plot { width:100%; min-height:40px; }
+.viz-svg { display:block; overflow:visible; }
+.viz-hit { touch-action:pan-y; cursor:crosshair; }
+.viz-tick { fill:#8b93a1; font-size:11px; font-variant-numeric:tabular-nums; }
+.viz-label { fill:#eceae6; font-size:12px; font-weight:600; }
+.viz-label.muted { fill:#a7aeba; font-weight:500; }
+.viz-tip { position:absolute; left:0; top:0; pointer-events:none; background:#0f1114; border:1px solid var(--line); border-radius:8px;
+  padding:6px 9px; font-size:12px; color:#a7aeba; white-space:nowrap; box-shadow:0 6px 18px #0008; z-index:2; }
+.viz-tip strong { display:block; font-size:15px; color:#eceae6; }
+.viz-legend { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); margin-top:4px; }
+.viz-legend .swatch { width:10px; height:10px; border-radius:2px; background:#3987e5; display:inline-block; }
+.viz-legend .swatch.partial { opacity:.4; }
+.viz-table summary { font-size:13px; color:var(--muted); cursor:pointer; padding:8px 0 6px; }
+.viz-table table { font-size:13px; margin-bottom:8px; }
+.viz-table td, .viz-table th { padding:3px 6px; border-bottom:1px solid var(--line); }

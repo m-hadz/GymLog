@@ -3,11 +3,11 @@
 // - Catálogo e imágenes de ejercicios (CDN): caché en tiempo de ejecución.
 // - /api nunca se cachea (los datos sin conexión los maneja data.js).
 // Sube VERSION cuando cambies la lista SHELL.
-const VERSION = 'v2';
+const VERSION = 'v3';
 const SHELL_CACHE = `gymlog-shell-${VERSION}`;
 const RUNTIME_CACHE = 'gymlog-runtime';
 const SHELL = [
-  '/', '/css/app.css', '/manifest.webmanifest',
+  '/', '/css/app.css', '/manifest.webmanifest', '/vendor/d3.min.js',
   '/js/main.js', '/js/api.js', '/js/catalog.js', '/js/charts.js', '/js/data.js', '/js/plates.js',
   '/js/rest-timer.js', '/js/stats.js', '/js/strong-csv.js', '/js/ui.js',
   '/js/views/editor.js', '/js/views/exercises.js', '/js/views/history.js', '/js/views/picker.js',
