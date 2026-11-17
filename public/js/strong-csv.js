@@ -53,9 +53,9 @@ export function analyzeStrongCSV(text) {
   const header = rows[0].map((c) => normalize(c).trim());
   const col = (...names) => header.findIndex((c) => names.some((n) => c === n || c.startsWith(n)));
   const C = {
-    date: col('date', 'fecha'), workout: col('workout name', 'nombre del entrenamiento'),
+    date: col('date', 'fecha'), workout: col('workout name', 'nombre de entrenamiento', 'nombre del entrenamiento'),
     duration: col('duration', 'duracion'), exercise: col('exercise name', 'nombre del ejercicio'),
-    order: col('set order', 'orden'), weight: col('weight', 'peso'), reps: col('reps', 'repeticiones'),
+    order: col('set order', 'orden'), weight: col('weight', 'peso'), reps: col('reps', 'repeticiones', 'rep'),
     distance: col('distance', 'distancia'), seconds: col('seconds', 'segundos'),
     notes: col('notes', 'notas'), wnotes: col('workout notes', 'notas del entrenamiento'), rpe: col('rpe'),
   };
@@ -76,9 +76,18 @@ export function analyzeStrongCSV(text) {
     const date = parseDate(get(C.date));
     const exName = get(C.exercise);
     if (!date || !exName) continue;
+    const wName = get(C.workout) || 'Entrenamiento';
+    const key = `${get(C.date)}|${wName}`;
     const orderRaw = get(C.order).toUpperCase();
     const type = /^\d+$/.test(orderRaw) || orderRaw === '' ? 'N' : ['W', 'D', 'F'].includes(orderRaw) ? orderRaw : null;
-    if (!type) continue; // filas que no son series (p. ej. "Rest Timer")
+    if (!type) {
+      // Filas de temporizador ("Rest Timer" / "Temporizador de descanso"): no son series,
+      // pero dicen cuánto descansas en ese ejercicio.
+      const last = workouts.get(key)?.exercises.at(-1);
+      const secs = num(get(C.seconds));
+      if (/REST|DESCANSO|TEMPORIZADOR/.test(orderRaw) && last && last.name === exName && secs > 0) last.rest = secs;
+      continue;
+    }
     let weight = num(get(C.weight)) ?? 0;
     if (lbs || (unitCol >= 0 && /lb/i.test(get(unitCol)))) {
       weight = Math.round(weight * 0.45359237 * 10) / 10;
@@ -91,8 +100,6 @@ export function analyzeStrongCSV(text) {
     if (rpe) set.rpe = rpe;
     if (!set.reps && !set.seconds && !set.distance) continue;
 
-    const wName = get(C.workout) || 'Entrenamiento';
-    const key = `${get(C.date)}|${wName}`;
     if (!workouts.has(key)) {
       const dur = parseDuration(get(C.duration));
       workouts.set(key, {
@@ -102,12 +109,15 @@ export function analyzeStrongCSV(text) {
       });
     }
     const w = workouts.get(key);
+    if (!w.notes && get(C.wnotes)) w.notes = get(C.wnotes);
     const exId = resolve(exName);
     let entry = w.exercises.at(-1);
     if (!entry || entry.exercise_id !== exId) {
-      entry = { exercise_id: exId, name: exName, notes: get(C.notes), sets: [] };
+      entry = { exercise_id: exId, name: exName, notes: '', sets: [] };
       w.exercises.push(entry);
     }
+    const note = get(C.notes);
+    if (note && !entry.notes.includes(note)) entry.notes = entry.notes ? `${entry.notes}\n${note}` : note;
     entry.sets.push(set);
     setCount++;
   }

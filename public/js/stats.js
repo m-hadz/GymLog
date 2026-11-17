@@ -63,8 +63,12 @@ export function exerciseSessions(workouts, exId) {
 
 export function exerciseRecords(sessions) {
   const rec = { e1rm: null, weight: null, setVolume: null, sessionVolume: null, reps: null };
+  // En empate de valor gana la serie con más reps (p. ej. 20 kg ×7 antes que 20 kg ×5).
   const bump = (key, value, set, workout) => {
-    if (value > 0 && (!rec[key] || value > rec[key].value)) rec[key] = { value, set, workout };
+    if (value > 0 && (!rec[key] || value > rec[key].value ||
+      (value === rec[key].value && set && rec[key].set && (set.reps || 0) > (rec[key].set.reps || 0)))) {
+      rec[key] = { value, set, workout };
+    }
   };
   const all = [];
   for (const sess of sessions) {
