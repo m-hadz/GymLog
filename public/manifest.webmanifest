@@ -1,0 +1,8 @@
+{
+  "name": "GymLog",
+  "short_name": "GymLog",
+  "start_url": "/#/train",
+  "display": "standalone",
+  "background_color": "#16181c",
+  "theme_color": "#16181c"
+}
