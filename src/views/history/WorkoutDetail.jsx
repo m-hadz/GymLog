@@ -10,7 +10,7 @@ import { useCatalog, useData } from '../../lib/hooks.js';
 import { navigate } from '../../lib/router.js';
 import { remove, upsert, workoutById } from '../../lib/data.js';
 import { exerciseName } from '../../lib/catalog.js';
-import { computePRs, prCount, workoutVolume, workoutDuration, isWorking, setVolume } from '../../lib/stats.js';
+import { bestSet, computePRs, e1rm, prCount, workoutVolume, workoutDuration, isWorking, setVolume } from '../../lib/stats.js';
 import { previousOf, startWorkout, templateFromWorkout } from '../../lib/workout.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, fmtTime, fmtVolume } from '../../lib/format.js';
 import { Page, PageHeader } from '../../components/PageHeader.jsx';
@@ -83,36 +83,66 @@ function RecordsCard({ w, marks }) {
   );
 }
 
+// Mejor serie de un ejercicio en un entrenamiento y su "fuerza":
+// 1RM estimado si lleva peso, o máximo de repeticiones si es sin peso.
+function exerciseStats(w, exId) {
+  const working = (w.exercises || []).filter((e) => e.exercise_id === exId).flatMap((e) => e.sets).filter(isWorking);
+  const best = bestSet(working);
+  return {
+    best,
+    weighted: !!best?.weight,
+    strength: best ? (best.weight ? e1rm(best.weight, best.reps) : Math.max(...working.map((s) => s.reps || 0))) : 0,
+    volume: exVolume(w, exId),
+  };
+}
+
+// Compara cada ejercicio con la vez anterior. La cifra principal es la fuerza
+// (1RM estimado de la mejor serie, o reps si es sin peso); el volumen va aparte,
+// porque subir de peso con menos series baja el volumen aunque estés más fuerte.
 function CompareCard({ w, prev }) {
   const rows = useMemo(() => [...new Set(w.exercises.map((e) => e.exercise_id))].map((exId) => {
-    const a = exVolume(prev, exId), b = exVolume(w, exId);
-    return a || b ? { exId, a, b, name: exerciseName(exId, w.exercises.find((e) => e.exercise_id === exId).name) } : null;
+    const a = exerciseStats(prev, exId);
+    const b = exerciseStats(w, exId);
+    if (!b.best) return null;
+    const comparable = a.best && a.weighted === b.weighted;
+    return { exId, a: comparable ? a : null, b, name: exerciseName(exId, w.exercises.find((e) => e.exercise_id === exId).name) };
   }).filter(Boolean), [w, prev]);
   if (!rows.length) return null;
-  const max = Math.max(1, ...rows.flatMap((r) => [r.a, r.b]));
+  const unit = (r, v) => (r.b.weighted ? `${fmtNum(v)} kg` : `${fmtNum(v, 0)} reps`);
+  const vol = (r, v) => (r.b.weighted ? fmtVolume(v) : `${fmtNum(v, 0)} reps`);
   return (
     <Card withBorder className={classes.surfaceCard} padding="md">
-      <Group justify="space-between" mb="sm" wrap="nowrap">
+      <Group justify="space-between" mb={2} wrap="nowrap">
         <Text fw={650}>Contra la última vez</Text>
         <Text size="xs" c="dimmed">{fmtDate(prev.started_at, { day: 'numeric', month: 'short' }).replace('.', '')}</Text>
       </Group>
-      <Stack gap="md">
+      <Text size="xs" c="dimmed" mb="md">Fuerza: 1RM estimado de tu mejor serie (reps si es sin peso).</Text>
+      <Stack gap="lg">
         {rows.map((r) => {
-          const d = pct(r.a, r.b);
+          const d = r.a ? Math.round((r.b.strength / r.a.strength - 1) * 1000) / 10 : null;
+          const dv = r.a ? pct(r.a.volume, r.b.volume) : null;
+          const max = Math.max(1, r.b.strength, r.a?.strength || 0);
           return (
-            <Box key={r.exId}>
+            <Box key={r.exId} data-testid="compare-row">
               <Group justify="space-between" wrap="nowrap" gap="xs" mb={6}>
                 <Text size="sm" fw={550} truncate="end">{r.name}</Text>
                 {d == null ? <Badge size="sm" variant="light" color="brand">nuevo</Badge> : <DeltaBadge value={d} />}
               </Group>
+              {r.a ? (
+                <Box className={classes.cmpRow}>
+                  <Box className={classes.cmpTrack}><Box className={classes.cmpPrev} style={{ '--w': `${(r.a.strength / max) * 100}%` }} /></Box>
+                  <Text size="xs" c="dimmed" className={`${classes.cmpVal} tnum`}>{unit(r, r.a.strength)}</Text>
+                </Box>
+              ) : null}
               <Box className={classes.cmpRow}>
-                <Box className={classes.cmpTrack}><Box className={classes.cmpPrev} style={{ '--w': `${(r.a / max) * 100}%` }} /></Box>
-                <Text size="xs" c="dimmed" className={`${classes.cmpVal} tnum`}>{r.a ? fmtNum(r.a, 0) : '—'}</Text>
+                <Box className={classes.cmpTrack}><Box className={classes.cmpNow} style={{ '--w': `${(r.b.strength / max) * 100}%` }} /></Box>
+                <Text size="xs" fw={650} className={`${classes.cmpVal} tnum`}>{unit(r, r.b.strength)}</Text>
               </Box>
-              <Box className={classes.cmpRow}>
-                <Box className={classes.cmpTrack}><Box className={classes.cmpNow} style={{ '--w': `${(r.b / max) * 100}%` }} /></Box>
-                <Text size="xs" fw={650} className={`${classes.cmpVal} tnum`}>{fmtNum(r.b, 0)}</Text>
-              </Box>
+              <Text size="xs" c="dimmed" mt={6} className="tnum">
+                Mejor serie {fmtSet(r.b.best)}{r.a ? ` (antes ${fmtSet(r.a.best)})` : ''}
+                {' · '}Volumen {vol(r, r.b.volume)}
+                {r.a ? ` (antes ${vol(r, r.a.volume)}${dv ? `, ${dv > 0 ? '+' : ''}${dv} %` : ''})` : ''}
+              </Text>
             </Box>
           );
         })}
@@ -121,7 +151,6 @@ function CompareCard({ w, prev }) {
         <Group gap={6}><span className={classes.dotPrev} /><Text size="xs" c="dimmed">La vez anterior</Text></Group>
         <Group gap={6}><span className={classes.dotNow} /><Text size="xs" c="dimmed">Hoy</Text></Group>
       </Group>
-      <Text size="xs" c="dimmed" mt={6}>Volumen = kg × reps (o reps si es sin peso).</Text>
     </Card>
   );
 }
