@@ -61,6 +61,10 @@ try {
     }
     await visible(until);
   };
+  const expectValue = async (loc, v) => {
+    for (let i = 0; i < 40; i++) { if (await loc.inputValue() === v) return; await page.waitForTimeout(100); }
+    assert.equal(await loc.inputValue(), v);
+  };
   const cards = () => tid('exercise-card');
   const menuItem = (label) => page.getByRole('menuitem', { name: label });
 
@@ -128,7 +132,7 @@ try {
   const curl = cards().nth(1);
   assert.equal((await curl.getByTestId('set-prev').first().innerText()).trim(), '18 × 10');
   await curl.getByTestId('set-check').first().click();
-  assert.equal(await curl.getByTestId('set-weight').first().inputValue(), '18');
+  await expectValue(curl.getByTestId('set-weight').first(), '18');
   await expectCount(curl.locator('[data-testid=set-row][data-fb=eq]'), 1);
   // recargar a mitad de entrenamiento: no se pierde
   await page.reload();
