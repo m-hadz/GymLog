@@ -1,0 +1,49 @@
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding: 18px 18px;
+  border-radius: var(--mantine-radius-lg);
+  color: var(--mantine-color-white);
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(255, 255, 255, 0.18), transparent 55%),
+    linear-gradient(135deg, var(--mantine-color-brand-7), var(--mantine-color-brand-5));
+  box-shadow: 0 10px 30px -14px var(--mantine-color-brand-7);
+
+  &::after {
+    content: '';
+    position: absolute;
+    right: -30px;
+    bottom: -46px;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    border: 18px solid rgba(255, 255, 255, 0.08);
+  }
+}
+
+.heroIcon {
+  flex: none;
+  color: var(--mantine-color-brand-7);
+}
+
+.heroTotal {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.heroSub {
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+.syncCard {
+  border-color: var(--mantine-color-orange-light-color);
+}
+
+.footer {
+  text-align: center;
+  padding: 8px 0 4px;
+}

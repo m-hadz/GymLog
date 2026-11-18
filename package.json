@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "npm run build && node dev-server.js --dist",
     "test": "node --test test/*.test.js",
-    "test:e2e": "node test/e2e.mjs"
+    "test:e2e": "vite build && node test/e2e.mjs"
   },
   "engines": {
     "node": ">=20"

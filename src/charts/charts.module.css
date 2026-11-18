@@ -21,6 +21,14 @@
   position: relative;
 }
 
+.hint {
+  position: absolute;
+  left: 40px;
+  right: 0;
+  top: 22%;
+  pointer-events: none;
+}
+
 .tooltip {
   background: var(--mantine-color-body);
   min-width: 110px;

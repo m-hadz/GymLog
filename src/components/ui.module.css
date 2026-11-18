@@ -1,12 +1,22 @@
 .stat {
+  container-type: inline-size;
   background: var(--app-surface);
   border-color: var(--app-border);
   min-width: 0;
 }
 
+.statValue {
+  /* se achica en tarjetas angostas (3 columnas en un teléfono) en vez de cortarse */
+  font-size: clamp(16px, 9.2cqi + 8px, 22px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .statLabel {
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   font-size: 10.5px;
+  line-height: 1.25;
 }
 
 .statGrid {

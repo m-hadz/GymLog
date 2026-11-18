@@ -1,0 +1,82 @@
+.chart {
+  --chart-grid-color: light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  --chart-text-color: var(--mantine-color-dimmed);
+  --chart-cursor-fill: light-dark(rgba(0, 0, 0, 0.04), rgba(255, 255, 255, 0.05));
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+
+  :global(.recharts-cartesian-axis-tick-value) {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  :global(.recharts-reference-line-label) {
+    font-weight: 600;
+  }
+}
+
+.wrap {
+  position: relative;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--mantine-color-dimmed);
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 5px;
+  vertical-align: -1px;
+  background: var(--c);
+}
+
+.dash {
+  display: inline-block;
+  width: 14px;
+  margin-right: 5px;
+  vertical-align: 3px;
+  border-top: 2px dashed var(--mantine-color-gray-5);
+}
+
+/* ---- Barras horizontales ---- */
+.hbars {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hbarTrack {
+  height: 10px;
+  border-radius: 999px;
+  background: light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5));
+  overflow: hidden;
+}
+
+.hbarFill {
+  height: 100%;
+  width: var(--w);
+  min-width: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--mantine-color-brand-7), var(--mantine-color-brand-4));
+  animation: grow 800ms cubic-bezier(.2, .8, .2, 1) both;
+  animation-delay: var(--d, 0ms);
+  transform-origin: left;
+}
+
+@keyframes grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hbarFill { animation: none; }
+}

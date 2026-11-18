@@ -11,13 +11,13 @@ import classes from './ui.module.css';
 export function StatTile({ label, value, hint, icon: Icon, color = 'brand', tone, ...rest }) {
   return (
     <Card withBorder className={classes.stat} padding="sm" {...rest}>
-      <Group gap={6} wrap="nowrap" mb={4}>
-        {Icon ? <Icon size={15} stroke={2} color={`var(--mantine-color-${color}-filled)`} /> : null}
-        <Text size="xs" c="dimmed" fw={600} tt="uppercase" className={classes.statLabel} truncate="end">{label}</Text>
+      <Group gap={6} wrap="nowrap" mb={4} align="flex-start">
+        {Icon ? <Icon size={15} stroke={2} style={{ flex: "none" }} color={`var(--mantine-color-${color}-filled)`} /> : null}
+        <Text size="xs" c="dimmed" fw={600} tt="uppercase" className={classes.statLabel} lineClamp={2}>{label}</Text>
       </Group>
-      <Text fz={22} fw={750} lh={1.15} className="tnum" truncate="end">{value}</Text>
+      <Text fw={750} lh={1.15} className={`tnum ${classes.statValue}`}>{value}</Text>
       {hint != null ? (
-        <Text size="xs" mt={2} c={tone === 'up' ? 'teal' : tone === 'down' ? 'orange' : 'dimmed'} fw={tone ? 600 : 400} truncate="end">
+        <Text size="xs" mt={2} lh={1.3} c={tone === 'up' ? 'teal' : tone === 'down' ? 'orange' : 'dimmed'} fw={tone ? 600 : 400} lineClamp={2}>
           {hint}
         </Text>
       ) : null}

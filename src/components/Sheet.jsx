@@ -2,7 +2,7 @@
 //   const close = openSheet({ title: 'Añadir ejercicios', render: (close) => <Contenido onDone={close} /> })
 // `render` es un componente: puede usar hooks y estado propio.
 import { useSyncExternalStore } from 'react';
-import { Drawer, ScrollArea } from '@mantine/core';
+import { Drawer } from '@mantine/core';
 import classes from './Sheet.module.css';
 
 let sheets = [];
@@ -58,8 +58,8 @@ export function SheetHost() {
       title={s.title}
       zIndex={300 + i * 2}
       classNames={{ content: classes.content, header: classes.header, body: classes.body, title: classes.title }}
+      styles={{ content: { height: s.size === 'full' ? '94dvh' : 'auto' } }}
       transitionProps={{ duration: 220, timingFunction: 'cubic-bezier(.2,.8,.2,1)' }}
-      scrollAreaComponent={ScrollArea.Autosize}
       withCloseButton={!!s.title}
       closeButtonProps={{ 'aria-label': 'Cerrar', size: 'lg' }}
       data-testid={s.testId || 'sheet'}

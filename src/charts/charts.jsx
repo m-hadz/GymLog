@@ -53,7 +53,7 @@ function DataTable({ headers, rows }) {
         <Text size="xs" c="dimmed" fw={600}>{open ? 'Ocultar datos' : 'Ver datos'}</Text>
         <IconChevronDown size={14} className={classes.chev} data-open={open || undefined} />
       </UnstyledButton>
-      <Collapse in={open}>
+      <Collapse expanded={open}>
         <Table.ScrollContainer minWidth={260} mah={260} type="native">
           <Table striped={false} highlightOnHover={false} verticalSpacing={6} fz="xs" stickyHeader>
             <Table.Thead>
@@ -133,6 +133,31 @@ export function RangeControl({ options, value, onChange }) {
 
 // ---------- Gráfico de línea/área en el tiempo ----------
 
+// Recharts solo muestra el tooltip al arrastrar el dedo; con esto también al tocar.
+export function tapToTooltip(e) {
+  const t = e.touches?.[0];
+  if (!t || typeof Touch === 'undefined') return;
+  try {
+    const touch = new Touch({ identifier: t.identifier, target: e.target, clientX: t.clientX, clientY: t.clientY, pageX: t.pageX, pageY: t.pageY });
+    e.target.dispatchEvent(new TouchEvent('touchmove', { touches: [touch], targetTouches: [touch], changedTouches: [touch], bubbles: true, cancelable: true }));
+  } catch { /* navegador sin constructor Touch: queda el arrastre */ }
+}
+
+// Escala "bonita" para el eje Y: pasos de 1, 2, (2,5) o 5 × 10ⁿ y ~4 marcas
+export function niceScale(lo, hi, count = 4) {
+  if (hi === lo) { const d = Math.max(1, Math.abs(hi) * 0.1); lo -= d; hi += d; }
+  const raw = (hi - lo) / (count - 1);
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  // 2,5 solo si el paso queda entero (las etiquetas del eje no llevan decimales)
+  const nice = (mag >= 10 ? [1, 2, 2.5, 5, 10] : [1, 2, 5, 10]).map((m) => m * mag).find((x) => x >= raw);
+  const step = Math.max(1, nice); // el eje no muestra decimales
+  const min = Math.floor(lo / step) * step;
+  const max = Math.ceil(hi / step) * step;
+  const ticks = [];
+  for (let v = min; v <= max + step / 2; v += step) ticks.push(Math.round(v * 1e6) / 1e6);
+  return { min, max, ticks };
+}
+
 /**
  * @param {object} p
  * @param {{date: Date, value: number, label?: string}[]} p.points  orden cronológico
@@ -152,48 +177,64 @@ export function TrendChart({ points, format, axisFormat = format, color = 'brand
   const tickFmt = (t) => (spanDays > 300 ? dateMonth(new Date(t)) : dateShort(new Date(t)));
   const values = data.map((d) => d.value);
   const lo = Math.min(...values), hi = Math.max(...values);
-  const pad = (hi - lo) * 0.25 || Math.max(1, hi * 0.1);
+  const pad = (hi - lo) * 0.12;
+  const y = niceScale(Math.max(0, lo - pad), hi + pad);
   const best = hi;
   const showBest = markBest && data.length > 2 && data.at(-1).value < best;
+  const dense = data.length > 16;
+  const strokeColor = `var(--mantine-color-${color.replace('.', '-')})`;
+  // Recharts vuelve a animar al cambiar los datos (p. ej. al cambiar el periodo)
+  const animKey = `${data.length}:${x0}:${x1}`;
 
   return (
-    <AreaChart
-      h={height}
-      data={data}
-      dataKey="t"
-      series={[{ name: 'value', color, label: 'Valor' }]}
-      curveType="monotone"
-      strokeWidth={2.5}
-      fillOpacity={0.35}
-      withGradient
-      withDots={data.length <= 16}
-      dotProps={{ r: 3, strokeWidth: 2, fill: 'var(--app-surface)' }}
-      activeDotProps={{ r: 6, strokeWidth: 3, fill: 'var(--app-surface)' }}
-      gridAxis="y"
-      tickLine="none"
-      strokeDasharray="3 4"
-      withXAxis
-      withYAxis
-      className={classes.chart}
-      xAxisProps={{
-        type: 'number', scale: 'time', domain: [x0, x1], tickFormatter: tickFmt,
-        tickCount: 4, minTickGap: 28, padding: { left: 10, right: 14 },
-      }}
-      yAxisProps={{
-        width: 40, tickFormatter: axisFormat, tickCount: 4, allowDecimals: false,
-        domain: [Math.max(0, Math.floor(lo - pad)), Math.ceil(hi + pad)],
-      }}
-      referenceLines={showBest ? [{ y: best, color: 'yellow.6', strokeDasharray: '4 4', label: { value: `Mejor ${format(best)}`, position: 'insideTopLeft', fontSize: 11, fill: 'var(--mantine-color-yellow-5)' } }] : []}
-      tooltipAnimationDuration={120}
-      tooltipProps={{
-        cursor: { stroke: 'var(--mantine-color-dimmed)', strokeWidth: 1, strokeDasharray: '3 3' },
-        content: ({ active, payload }) => {
-          const d = active && payload?.[0]?.payload;
-          return d ? <TooltipCard value={format(d.value)} lines={[dateLong(new Date(d.t)), d.label]} /> : null;
-        },
-      }}
-      areaChartProps={{ margin: { top: 14, right: 6, left: -6, bottom: 0 } }}
-      areaProps={{ animationDuration: 700, animationEasing: 'ease-out' }}
-    />
+    <Box className={classes.wrap} onTouchStart={tapToTooltip}>
+      <AreaChart
+        key={animKey}
+        h={height}
+        data={data}
+        dataKey="t"
+        series={[{ name: 'value', color, label: 'Valor' }]}
+        curveType="monotone"
+        strokeWidth={2.5}
+        fillOpacity={0.5}
+        withGradient
+        withDots={!dense}
+        dotProps={{ r: 3.5, strokeWidth: 2, fill: 'var(--app-surface)', stroke: strokeColor }}
+        activeDotProps={{ r: 6, strokeWidth: 3, fill: 'var(--app-surface)', stroke: strokeColor }}
+        gridAxis="x"
+        tickLine="none"
+        strokeDasharray="0"
+        withXAxis
+        withYAxis
+        className={classes.chart}
+        xAxisProps={{
+          type: 'number', scale: 'time', domain: [x0, x1], tickFormatter: tickFmt,
+          tickCount: 4, minTickGap: 28, padding: { left: 12, right: 12 }, tickMargin: 8,
+        }}
+        yAxisProps={{
+          width: 40, tickFormatter: axisFormat, ticks: y.ticks, domain: [y.min, y.max],
+          allowDataOverflow: false, tickMargin: 4,
+        }}
+        referenceLines={showBest ? [{
+          y: best, color: 'yellow.5', strokeDasharray: '4 4',
+          label: { value: `Mejor ${format(best)}`, position: 'insideTopRight', fontSize: 11, fontWeight: 600, fill: 'var(--mantine-color-yellow-5)' },
+        }] : []}
+        tooltipAnimationDuration={100}
+        tooltipProps={{
+          cursor: { stroke: strokeColor, strokeWidth: 1.5, strokeOpacity: 0.6 },
+          allowEscapeViewBox: { x: false, y: true },
+          offset: 14,
+          content: ({ active, payload }) => {
+            const d = active && payload?.[0]?.payload;
+            return d ? <TooltipCard value={format(d.value)} lines={[dateLong(new Date(d.t)), d.label]} /> : null;
+          },
+        }}
+        areaChartProps={{ margin: { top: 16, right: 8, left: -4, bottom: 0 }, accessibilityLayer: true }}
+        areaProps={{ animationDuration: 800, animationEasing: 'ease-out' }}
+      />
+      {data.length === 1 ? (
+        <Text size="xs" c="dimmed" ta="center" className={classes.hint}>Una sola sesión: registra más para ver la tendencia</Text>
+      ) : null}
+    </Box>
   );
 }

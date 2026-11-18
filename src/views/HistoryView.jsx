@@ -1,4 +1,4 @@
-import { Page, PageHeader } from '../components/PageHeader.jsx';
-export function HistoryView() { return <><PageHeader title="Historial" /><Page>TODO</Page></>; }
-export function WorkoutDetailView() { return <><PageHeader title="Entrenamiento" back /><Page>TODO</Page></>; }
-export function CalendarView() { return <><PageHeader title="Calendario" back /><Page>TODO</Page></>; }
+// Pestaña Historial: lista por meses, detalle de entrenamiento y calendario.
+export { HistoryList as HistoryView } from './history/HistoryList.jsx';
+export { WorkoutDetail as WorkoutDetailView } from './history/WorkoutDetail.jsx';
+export { CalendarView } from './history/CalendarView.jsx';
