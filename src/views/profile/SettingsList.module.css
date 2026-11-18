@@ -1,0 +1,60 @@
+.group {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--mantine-radius-lg);
+  overflow: hidden;
+}
+
+.row {
+  display: block;
+  width: 100%;
+  padding: 11px 14px;
+  position: relative;
+
+  & + & {
+    border-top: 1px solid var(--app-border);
+  }
+
+  &[data-clickable] {
+    transition: background-color 100ms ease;
+
+    &:active {
+      background: var(--mantine-color-default-hover);
+    }
+
+    @media (hover: hover) {
+      &:hover {
+        background: var(--mantine-color-default-hover);
+      }
+    }
+  }
+}
+
+.main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 36px;
+}
+
+.icon {
+  flex: none;
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+}
+
+.chev {
+  flex: none;
+  color: var(--mantine-color-dimmed);
+}
+
+.below {
+  margin-top: 10px;
+
+  &[data-indent] {
+    margin-left: 46px;
+  }
+}

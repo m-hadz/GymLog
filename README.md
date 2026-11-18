@@ -1,8 +1,8 @@
-# GymLog — v0.0.3
+# GymLog — v0.0.4
 
 Registro de entrenamientos personal, inspirado en el flujo de Strong y escrito desde cero.
-No necesita dependencias ni paso de build: JS puro en el frontend, funciones serverless en
-Vercel y Postgres gratuito en Supabase.
+Frontend en React + [Mantine](https://mantine.dev) (compilado con Vite, instalable como PWA),
+funciones serverless en Vercel y Postgres gratuito en Supabase.
 
 ## Qué hace (v1)
 
@@ -24,7 +24,20 @@ Vercel y Postgres gratuito en Supabase.
 - **Tus datos:** importar el CSV de Strong (sin duplicar si lo reimportas; convierte libras a
   kg), exportar en formato Strong, descargar y restaurar un respaldo JSON (se combina, no borra).
 
-### Nuevo en v0.0.3
+### Nuevo en v0.0.4
+- **Interfaz rediseñada desde cero** con React + Mantine, pensada primero para el teléfono:
+  navegación inferior con íconos, encabezados fijos, hojas inferiores (selector de ejercicios,
+  discos, descanso), diálogos y notificaciones propios en vez de los del navegador.
+- **Gráficos nuevos** (`@mantine/charts`): área con gradiente y animación, tooltip táctil,
+  línea de mejor marca, barras semanales con promedio y semana en curso, series por grupo muscular.
+- **Temporizador de descanso** flotante con barra de progreso; barra del entrenamiento en curso
+  visible en todas las pestañas.
+- **Tema claro / oscuro / automático** (en Perfil) y tipografía Inter incluida (funciona sin conexión).
+- Service worker generado por Workbox (`vite-plugin-pwa`), con íconos para instalar la app.
+- Prueba end-to-end reescrita en JS: `npm run test:e2e` compila, levanta su propio servidor y
+  recorre todos los flujos.
+
+### v0.0.3
 - **Gráficos rehechos con d3** (incluido en `public/vendor/`, funciona sin conexión): línea con área
   tenue, eje y grilla limpios, etiqueta del último valor y de la mejor marca, tooltip con crosshair
   al tocar o arrastrar, variación en el periodo y tabla "Ver datos" en cada gráfico.
@@ -64,7 +77,8 @@ git push -u origin main
 (El repo ya viene inicializado con un commit. Puede ser privado.)
 
 ### 3. Hosting en Vercel
-1. En <https://vercel.com>: **Add New → Project** → importa el repo. Preset: **Other**.
+1. En <https://vercel.com>: **Add New → Project** → importa el repo. Preset: **Other**
+   (`vercel.json` ya define `npm run build` y la carpeta `dist`).
 2. En **Environment Variables** agrega:
    | Variable | Valor |
    |---|---|
@@ -86,32 +100,43 @@ a inglés antes de exportar) y luego en GymLog **Perfil → Importar CSV de Stro
 ## Desarrollo local
 
 ```bash
-node dev-server.js          # http://localhost:3000, datos en ./data/dev-db.json
+npm install
+npm run dev                 # http://localhost:3000 (Vite con recarga en caliente + /api), datos en ./data/dev-db.json
+npm run build               # compila a ./dist (es lo que publica Vercel)
+npm run preview             # compila y sirve ./dist (con service worker) en :3000
 npm test                    # pruebas del backend
-# prueba end-to-end (requiere Playwright para Python):
-APP_PASSWORD=test DATA_FILE=/tmp/gl.json node dev-server.js &
-DATA_FILE=/tmp/gl.json python3 test/e2e.py
+npx playwright install chromium   # una vez, para la prueba end-to-end
+npm run test:e2e            # compila y recorre la app completa en un navegador
+# datos de ejemplo (6 meses de Push/Pull/Legs) para probar la interfaz:
+APP_PASSWORD=test DATA_FILE=/tmp/demo.json node dev-server.js &
+BASE=http://localhost:3000 KEY=test node scripts/seed.mjs
 ```
 Copia `.env.example` a `.env` si quieres que el servidor local use tu Supabase.
 
 ## Arquitectura
 
 ```
-api/*.js            Funciones de Vercel (una por recurso), todas delegan en lib/router.js
-lib/router.js       Validación, auth por clave (header x-app-key) y CRUD genérico
-lib/store.js        Supabase vía REST (fetch, sin SDK) o archivo JSON en local
-schema.sql          3 tablas: workouts, templates, exercises (series en JSONB)
-public/sw.js        Service worker (app sin conexión)
-public/js/
-  main.js           Arranque y enrutador por hash
-  data.js           Estado + caché local + cola de sincronización (offline-first)
-  catalog.js        Catálogo free-exercise-db + ejercicios propios
-  stats.js          1RM (Brzycki), volumen, récords, historial por ejercicio
-  strong-csv.js     Importar/exportar CSV de Strong
-  rest-timer.js     Temporizador de descanso
-  plates.js         Calculadora de discos
-  charts.js         Gráficos SVG sin librerías
-  views/            Pantallas: train, editor, history, exercises, picker, profile
+api/*.js              Funciones de Vercel (una por recurso), todas delegan en lib/router.js
+lib/router.js         Validación, auth por clave (header x-app-key) y CRUD genérico
+lib/store.js          Supabase vía REST (fetch, sin SDK) o archivo JSON en local
+schema.sql            3 tablas: workouts, templates, exercises (series en JSONB)
+dev-server.js         /api + Vite en desarrollo (o ./dist con --dist)
+index.html            Entrada de Vite
+public/               Íconos de la app (los PNG se generan con scripts/make-icons.mjs)
+src/
+  main.jsx, App.jsx   Arranque, proveedores de Mantine y enrutador por hash
+  theme.js            Tema de Mantine (colores, tipografía, componentes)
+  lib/                Lógica sin interfaz:
+    data.js           Estado + caché local + cola de sincronización (offline-first)
+    hooks.js          Hooks de React sobre los stores (useData, useActiveWorkout, …)
+    catalog.js        Catálogo free-exercise-db + ejercicios propios
+    stats.js          1RM (Brzycki), volumen, récords, historial por ejercicio
+    workout.js        Empezar entrenamientos, plantillas, comparación en vivo
+    strong-csv.js     Importar/exportar CSV de Strong
+    rest-timer.js, plates.js, format.js, router.js, api.js
+  components/         Layout (navegación, descanso), encabezados, hojas, diálogos, selector de ejercicios
+  charts/             Gráficos (línea/área y barras) sobre @mantine/charts
+  views/              Pantallas: Entrenar, editor, Historial, Ejercicios, Perfil
 ```
 
 **API:** `GET /api/bootstrap` (todo), `GET|POST|DELETE /api/{workouts|templates|exercises}`
@@ -125,4 +150,4 @@ y el backend se mantiene mínimo.
 - Volumen semanal por músculo y rachas.
 - Ejercicios por tiempo con cronómetro; superseries.
 - Nota fija por ejercicio (asiento, agarre) y unir ejercicios duplicados.
-- Buscador en español para el catálogo; tema claro.
+- Buscador en español para el catálogo.

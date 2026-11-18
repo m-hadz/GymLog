@@ -1,0 +1,70 @@
+.filters {
+  position: sticky;
+  z-index: 5;
+  background: var(--mantine-color-body);
+  padding: 4px 0 8px;
+}
+
+.sectionLabel {
+  letter-spacing: 0.07em;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px;
+  margin: 0 -8px;
+  border-radius: var(--mantine-radius-md);
+  transition: background-color 100ms ease;
+
+  &:active {
+    background: var(--mantine-color-default-hover);
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      background: var(--mantine-color-default-hover);
+    }
+  }
+
+  &[data-selected] {
+    background: var(--mantine-primary-color-light);
+  }
+}
+
+.check {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--mantine-color-default-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  transition: all 120ms ease;
+
+  &[data-on] {
+    background: var(--mantine-primary-color-filled);
+    border-color: var(--mantine-primary-color-filled);
+    color: white;
+  }
+}
+
+.footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-width: var(--app-max-width);
+  margin: 0 auto;
+  padding: 12px 16px calc(12px + var(--safe-bottom));
+  background: linear-gradient(to top, var(--mantine-color-body) 70%, transparent);
+  z-index: 10;
+}
+
+.linkBox {
+  padding: 8px 10px;
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-default-border);
+}

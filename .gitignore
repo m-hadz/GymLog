@@ -3,3 +3,5 @@ data/
 .env
 .vercel/
 test-results/
+dist/
+dev-dist/

@@ -1,0 +1,126 @@
+.dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  padding-bottom: var(--safe-bottom);
+
+  & > * {
+    pointer-events: auto;
+  }
+
+  &[data-nav] {
+    padding-bottom: 0;
+  }
+}
+
+.floatWrap {
+  max-width: var(--app-max-width);
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 var(--mantine-spacing-sm) var(--mantine-spacing-xs);
+}
+
+/* ---- Navegación ---- */
+.nav {
+  background: var(--app-nav-bg);
+  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  border-top: 1px solid var(--app-border);
+  padding-bottom: var(--safe-bottom);
+}
+
+.navInner {
+  max-width: var(--app-max-width);
+  margin: 0 auto;
+  display: flex;
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 0 6px;
+  color: var(--mantine-color-dimmed);
+  transition: color 120ms ease;
+
+  &[data-active] {
+    color: var(--mantine-primary-color-filled);
+  }
+
+  &:active .tabIcon {
+    transform: scale(0.9);
+  }
+}
+
+.tabIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 30px;
+  border-radius: 999px;
+  transition: background-color 150ms ease, transform 100ms ease;
+
+  .tab[data-active] & {
+    background: var(--mantine-primary-color-light);
+  }
+}
+
+.tabLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* ---- Entrenamiento en curso ---- */
+.activeBar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--mantine-radius-lg);
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+}
+
+.pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--mantine-color-teal-5);
+  box-shadow: 0 0 0 0 rgba(32, 201, 151, 0.6);
+  animation: pulse 1.8s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(32, 201, 151, 0.55); }
+  70% { box-shadow: 0 0 0 9px rgba(32, 201, 151, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(32, 201, 151, 0); }
+}
+
+/* ---- Descanso ---- */
+.restBar {
+  padding: 10px 12px 10px 16px;
+  border-radius: var(--mantine-radius-lg);
+  background: linear-gradient(135deg, var(--mantine-color-brand-6), var(--mantine-color-brand-8));
+  box-shadow: 0 10px 30px rgba(18, 60, 200, 0.35);
+}
+
+.restBtn {
+  background: rgba(255, 255, 255, 0.16) !important;
+  color: white !important;
+}
+
+.restProgress {
+  background: rgba(255, 255, 255, 0.2);
+}
