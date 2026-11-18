@@ -1,7 +1,7 @@
 // Tarjeta de un ejercicio dentro del editor: encabezado, menú y tabla de series.
-import { memo, useEffect, useMemo, useState } from 'react';
+import { lazy, memo, Suspense, useEffect, useMemo, useState } from 'react';
 import {
-  ActionIcon, Box, Button, Card, Group, Menu, Text, Textarea, UnstyledButton,
+  ActionIcon, Box, Button, Card, Center, Group, Loader, Menu, Text, Textarea, UnstyledButton,
 } from '@mantine/core';
 import {
   IconArrowDown, IconArrowUp, IconCheck, IconClockHour4, IconDots, IconNote, IconPlus, IconTrash, IconWeight,
@@ -9,7 +9,6 @@ import {
 import { ExerciseThumb } from '../../components/ui.jsx';
 import { notify } from '../../components/dialogs.jsx';
 import { openSheet } from '../../components/Sheet.jsx';
-import { ExerciseDetail } from '../ExercisesView.jsx';
 import { state } from '../../lib/data.js';
 import { exerciseName, getExercise } from '../../lib/catalog.js';
 import { previousSets } from '../../lib/stats.js';
@@ -20,6 +19,9 @@ import {
 } from '../../lib/workout.js';
 import { openPlates, openRestPicker } from './sheets.jsx';
 import classes from './workout.module.css';
+
+// La ficha trae gráficos (Recharts): se carga recién al abrirla.
+const ExerciseDetail = lazy(() => import('../exercises/ExerciseDetail.jsx').then((m) => ({ default: m.ExerciseDetail })));
 
 const toText = (v) => (v == null ? '' : String(v).replace('.', ','));
 const selectAll = (e) => e.currentTarget.select();
@@ -231,7 +233,7 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, before, settings, upda
     <Card withBorder padding={0} className={classes.exCard} data-testid="exercise-card">
       <Group className={classes.exHead} wrap="nowrap" gap="sm" align="center">
         <UnstyledButton
-          onClick={() => openSheet({ size: 'full', title: name, render: () => <ExerciseDetail id={ex.exercise_id} /> })}
+          onClick={() => openSheet({ size: 'full', title: name, render: () => <Suspense fallback={<Center py="xl"><Loader type="dots" /></Center>}><ExerciseDetail id={ex.exercise_id} /></Suspense> })}
           style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}
           data-testid="exercise-open"
         >

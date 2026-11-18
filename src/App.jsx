@@ -1,5 +1,5 @@
 // Raíz: proveedores de Mantine, arranque (caché local + servidor) y enrutador por hash.
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Button, Center, Loader, MantineProvider, Stack, Text } from '@mantine/core';
 import { ModalsProvider } from '@mantine/modals';
 import { Notifications } from '@mantine/notifications';
@@ -18,8 +18,11 @@ import { LoginView } from './views/LoginView.jsx';
 import { TrainView } from './views/TrainView.jsx';
 import { ActiveWorkoutView, TemplateEditView, WorkoutEditView } from './views/WorkoutEditor.jsx';
 import { HistoryView, WorkoutDetailView, CalendarView } from './views/HistoryView.jsx';
-import { ExercisesView, ExerciseDetailView } from './views/ExercisesView.jsx';
-import { ProfileView } from './views/ProfileView.jsx';
+
+// Pantallas con gráficos (Recharts): se cargan al abrirlas para que la app arranque más liviana.
+const ExercisesView = lazy(() => import('./views/ExercisesView.jsx').then((m) => ({ default: m.ExercisesView })));
+const ExerciseDetailView = lazy(() => import('./views/ExercisesView.jsx').then((m) => ({ default: m.ExerciseDetailView })));
+const ProfileView = lazy(() => import('./views/ProfileView.jsx').then((m) => ({ default: m.ProfileView })));
 
 // [patrón, pestaña, componente, opciones]
 // editor: pantalla de edición a pantalla completa (sin barra de pestañas)
@@ -50,7 +53,7 @@ function Router() {
   if (opts.bare) return view;
   return (
     <AppLayout tab={tab} showNav={!opts.editor} onWorkoutScreen={!!opts.workout}>
-      {view}
+      <Suspense fallback={<Center h="60dvh"><Loader type="dots" /></Center>}>{view}</Suspense>
     </AppLayout>
   );
 }
