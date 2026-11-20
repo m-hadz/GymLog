@@ -53,7 +53,7 @@ export function ProfileView() {
         <SectionTitle>Ajustes</SectionTitle>
         <SettingsSection />
 
-        <Text size="xs" c="dimmed" className={classes.footer}>GymLog v0.0.4</Text>
+        <Text size="xs" c="dimmed" className={classes.footer}>GymLog v0.0.5</Text>
       </Page>
     </>
   );
