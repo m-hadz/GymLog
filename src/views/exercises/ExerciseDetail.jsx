@@ -19,6 +19,7 @@ import { ChartCard, DeltaText, RangeControl, TrendChart, dateLong, deltaOf, fnum
 import { EmptyState, ExerciseThumb, StatGrid, StatTile } from '../../components/ui.jsx';
 import { confirmDialog } from '../../components/dialogs.jsx';
 import { openExerciseForm } from '../../components/ExercisePicker.jsx';
+import { ExercisePrefsForm } from './ExercisePrefs.jsx';
 import classes from './ExerciseDetail.module.css';
 
 const TABS = [['about', 'Descripción'], ['history', 'Historial'], ['charts', 'Gráficas'], ['records', 'Registros']];
@@ -168,6 +169,13 @@ function About({ ex }) {
       ) : !ex.images.length ? (
         <Text size="sm" c="dimmed">Sin instrucciones. {ex.custom ? 'Puedes vincularlo a un ejercicio del catálogo para ver imagen e instrucciones.' : ''}</Text>
       ) : null}
+
+      <Box>
+        <Text size="xs" fw={700} c="dimmed" tt="uppercase" className={classes.label} mb={8}>Ajustes del ejercicio</Text>
+        <Card withBorder radius="md" padding="md">
+          <ExercisePrefsForm id={ex.id} category={ex.category} />
+        </Card>
+      </Box>
 
       {ex.custom ? (
         <Group grow mt="xs">

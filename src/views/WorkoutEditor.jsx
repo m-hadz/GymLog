@@ -212,7 +212,7 @@ function Editor({ mode, doc, update, onSave, onCancel }) {
               <ExerciseBlock
                 // eslint-disable-next-line react/no-array-index-key
                 key={`${ex.exercise_id}-${ei}`}
-                ex={ex} ei={ei} count={doc.exercises.length} mode={mode} docId={doc.id}
+                ex={ex} ei={ei} count={doc.exercises.length} mode={mode} docId={doc.id} templateId={doc.template_id}
                 before={isEdit ? doc.started_at : undefined}
                 settings={settings} update={update}
               />

@@ -1,6 +1,6 @@
 # 01 · Sugerencia de progresión (superar el 1RM estimado)
 
-**Esfuerzo:** M · **Depende de:** base común A (preferencias por ejercicio) y B (cargas posibles)
+**Estado:** implementada en v0.0.6 · **Esfuerzo:** M · **Depende de:** base común A (preferencias por ejercicio) y B (cargas posibles)
 · **Relacionada con:** 06 (reinicio), 12
 
 ## Problema y objetivo
@@ -139,6 +139,16 @@ efectiva; las demás muestran su "Anterior" como hoy.
 - [ ] Desactivar "Mostrar objetivo para superar" deja la app exactamente como hoy (test de regresión e2e).
 - [ ] Las series de calentamiento y drop sets no se usan como referencia.
 - [ ] Funciona sin conexión.
+
+## Notas de implementación (v0.0.6)
+
+- El objetivo se calcula mientras el entrenamiento está en curso, contra el historial sin ese
+  entrenamiento; en la práctica es lo mismo que calcularlo al empezar.
+- La pregunta del mínimo aumento es un enlace bajo la línea ("¿Cuánto es lo mínimo que puedes
+  subirle?") en máquinas, poleas y otros sin mínimo aumento definido. No es una ventana emergente
+  para no interrumpir la serie; desaparece al guardarlo.
+- La elección de la otra opción se guarda en el ejercicio del entrenamiento (`goal_alt: true`); al
+  marcar la serie, `target` guarda `{ weight, reps, source }`.
 
 ## Pruebas
 

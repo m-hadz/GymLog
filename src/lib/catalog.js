@@ -9,15 +9,23 @@ const SOURCES = [
 ];
 const IMG_BASE = `https://cdn.jsdelivr.net/gh/${REPO}@main/exercises/`;
 
-export const BODY_PARTS = ['Brazos', 'Espalda', 'Pecho', 'Hombros', 'Piernas', 'Core', 'Cardio', 'Otro'];
+// Grupos por músculo (no "Brazos" ni "Piernas": juntar bíceps, tríceps y antebrazo infla el
+// volumen de ese grupo frente a los demás).
+export const BODY_PARTS = ['Pecho', 'Espalda', 'Hombros', 'Bíceps', 'Tríceps', 'Antebrazo', 'Cuádriceps',
+  'Isquiotibiales', 'Glúteos', 'Aductores', 'Pantorrillas', 'Core', 'Cardio', 'Otro'];
+// Grupos antiguos (antes de v0.0.6) → grupos en que se separan
+const LEGACY_PARTS = {
+  Brazos: ['Bíceps', 'Tríceps', 'Antebrazo'],
+  Piernas: ['Cuádriceps', 'Isquiotibiales', 'Glúteos', 'Aductores', 'Pantorrillas'],
+};
 export const CATEGORIES = ['Barra', 'Mancuerna', 'Máquina', 'Polea', 'Peso corporal', 'Kettlebell',
   'Banda', 'Barra Z', 'Cardio', 'Otro'];
 
 const MUSCLE_TO_PART = {
-  abdominals: 'Core', abductors: 'Piernas', adductors: 'Piernas', biceps: 'Brazos', calves: 'Piernas',
-  chest: 'Pecho', forearms: 'Brazos', glutes: 'Piernas', hamstrings: 'Piernas', lats: 'Espalda',
-  'lower back': 'Espalda', 'middle back': 'Espalda', neck: 'Otro', quadriceps: 'Piernas',
-  shoulders: 'Hombros', traps: 'Hombros', triceps: 'Brazos',
+  abdominals: 'Core', abductors: 'Glúteos', adductors: 'Aductores', biceps: 'Bíceps', calves: 'Pantorrillas',
+  chest: 'Pecho', forearms: 'Antebrazo', glutes: 'Glúteos', hamstrings: 'Isquiotibiales', lats: 'Espalda',
+  'lower back': 'Espalda', 'middle back': 'Espalda', neck: 'Otro', quadriceps: 'Cuádriceps',
+  shoulders: 'Hombros', traps: 'Hombros', triceps: 'Tríceps',
 };
 const EQUIPMENT_TO_CAT = {
   barbell: 'Barra', dumbbell: 'Mancuerna', machine: 'Máquina', cable: 'Polea', 'body only': 'Peso corporal',
@@ -72,13 +80,25 @@ export function loadCatalog() {
 
 export const catalogSize = () => catalog.length;
 
+// Grupo de un ejercicio propio. Los guardados con un grupo antiguo ("Brazos", "Piernas") se
+// reparten por nombre o por el músculo del ejercicio vinculado; si no se puede, quedan como estaban.
+function bodyPartOf(row, linked) {
+  const part = row.body_part || 'Otro';
+  const split = LEGACY_PARTS[part];
+  if (!split) return part;
+  const guess = guessBodyPart(row.name);
+  if (split.includes(guess)) return guess;
+  if (linked && split.includes(linked.bodyPart)) return linked.bodyPart;
+  return part;
+}
+
 function fromCustom(row) {
   const linked = row.catalog_id ? byId.get(row.catalog_id) : null;
   const own = (row.instructions || '').split('\n').map((s) => s.trim()).filter(Boolean);
   return {
     id: row.id,
     name: row.name,
-    bodyPart: row.body_part || 'Otro',
+    bodyPart: bodyPartOf(row, linked),
     category: row.category || 'Otro',
     images: linked?.images || [],
     instructions: own.length ? own : linked?.instructions || [],
@@ -189,8 +209,15 @@ export function hashId(str) { // FNV-1a: ids deterministas, reimportar no duplic
 }
 
 const PART_RULES = [
-  [/squat|leg press|lunge|leg curl|leg extension|calf|hip thrust|glute|deadlift|abductor|adductor|split/i, 'Piernas'],
-  [/curl|bicep|tricep|pushdown|skullcrusher|kickback|wrist/i, 'Brazos'],
+  [/leg curl|romanian|rdl|stiff.leg|good morning|nordic|glute.ham/i, 'Isquiotibiales'],
+  [/hip thrust|glute|abductor|bridge/i, 'Glúteos'],
+  [/adductor/i, 'Aductores'],
+  [/calf/i, 'Pantorrillas'],
+  [/squat|leg press|lunge|leg extension|split|step.up|sissy/i, 'Cuádriceps'],
+  [/deadlift/i, 'Isquiotibiales'],
+  [/reverse curl|wrist|forearm|pronation/i, 'Antebrazo'],
+  [/tricep|pushdown|skullcrusher|kickback|french press/i, 'Tríceps'],
+  [/curl|bicep|supination/i, 'Bíceps'],
   [/row|pulldown|pull up|chin up|lat |pullover|back extension|shrug/i, 'Espalda'],
   [/bench|chest|fly|crossover|dip|push up|pec/i, 'Pecho'],
   [/shoulder|overhead|military|lateral raise|front raise|face pull|rear delt|arnold|external rotation/i, 'Hombros'],

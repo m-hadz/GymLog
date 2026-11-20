@@ -350,3 +350,40 @@
 .firstUpper::first-letter {
   text-transform: uppercase;
 }
+
+/* Objetivo para superar la vez anterior (feature 01) */
+.goal {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 6px;
+  align-items: start;
+  margin: 0 12px 8px;
+  padding: 7px 10px;
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-teal-light);
+}
+
+.goalIcon {
+  margin-top: 2px;
+  color: var(--mantine-color-teal-light-color);
+}
+
+.goalText {
+  min-width: 0;
+}
+
+.goalAlt {
+  font-size: inherit;
+  color: var(--mantine-color-teal-light-color);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.goalAsk {
+  grid-column: 2;
+  margin-top: 2px;
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+  text-decoration: underline;
+  text-align: left;
+}

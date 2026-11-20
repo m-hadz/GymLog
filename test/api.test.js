@@ -99,3 +99,18 @@ test('supabase: headers, upsert y paginación', async () => {
     delete process.env.SUPABASE_SECRET_KEY;
   }
 });
+
+test('preferencias por ejercicio: CRUD, bootstrap y validación', async () => {
+  let r = await call('POST', 'exercise_prefs', { id: 'Leverage_Chest_Press', min_increment: 2, max_load: 86 });
+  assert.equal(r.status, 200);
+  const saved = await r.json();
+  assert.equal(saved.rep_max, null);
+  assert.equal(saved.compare_same_template, false);
+  r = await call('GET', 'bootstrap');
+  const boot = await r.json();
+  assert.deepEqual(boot.exercise_prefs.map((p) => p.id), ['Leverage_Chest_Press']);
+  r = await call('POST', 'exercise_prefs', { id: 'x', min_increment: -1 });
+  assert.equal(r.status, 400);
+  r = await call('POST', 'exercise_prefs', { id: 'x', rep_max: '12' });
+  assert.equal(r.status, 400);
+});
