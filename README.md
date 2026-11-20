@@ -1,4 +1,4 @@
-# GymLog — v0.0.5
+# GymLog — v0.0.6
 
 Registro de entrenamientos personal, inspirado en el flujo de Strong y escrito desde cero.
 Frontend en React + [Mantine](https://mantine.dev) (compilado con Vite, instalable como PWA),
@@ -26,7 +26,17 @@ funciones serverless en Vercel y Postgres gratuito en Supabase.
 - **Tus datos:** importar el CSV de Strong (sin duplicar si lo reimportas; convierte libras a
   kg), exportar en formato Strong, descargar y restaurar un respaldo JSON (se combina, no borra).
 
-### Nuevo en v0.0.5
+### Nuevo en v0.0.6
+- **Objetivo para superar** ([feature 01](docs/features/01-sugerencia-progresion.md)): en el
+  entrenamiento, cada ejercicio muestra cuántas reps necesitas con el mismo peso para superar tu
+  1RM estimado de la vez anterior, y con el siguiente peso posible ("Para superar: 63 × 8 · o 65 × 7").
+  El ✓ en vacío guarda la propuesta. Respeta el mínimo aumento y el tope de cada máquina (Ajustes del
+  ejercicio) y prefiere los pesos que ya usaste. Se puede apagar en Perfil.
+- **Grupos por músculo:** "Brazos" y "Piernas" se separan en bíceps, tríceps, antebrazo, cuádriceps,
+  isquiotibiales, glúteos, aductores y pantorrillas, para que las series por grupo se comparen parejo.
+- Tabla nueva `exercise_prefs` (preferencias por ejercicio): correr su bloque de `schema.sql` en Supabase.
+
+### v0.0.5
 - **Lectura del día** (pestaña nueva): un cron diario toma el último video largo del canal
   configurado, lo transcribe y genera una lectura en español. Ver [Lectura del día](#lectura-del-día).
 - **Contra la última vez** compara por fuerza (1RM estimado de la mejor serie) en vez de por
@@ -162,7 +172,8 @@ api/*.js              Funciones de Vercel (una por recurso), todas delegan en li
 lib/router.js         Validación, auth por clave (header x-app-key) y CRUD genérico
 lib/store.js          Supabase vía REST (fetch, sin SDK) o archivo JSON en local
 lib/summary.js        Lectura del día: RSS de YouTube, Supadata, OpenAI y refreshSummary
-schema.sql            4 tablas: workouts, templates, exercises (series en JSONB) y
+schema.sql            5 tablas: workouts, templates, exercises (series en JSONB),
+                      exercise_prefs (ajustes por ejercicio, id = exercise_id) y
                       video_summaries (resúmenes de YouTube, id = video_id)
 dev-server.js         /api + Vite en desarrollo (o ./dist con --dist)
 index.html            Entrada de Vite
@@ -176,6 +187,8 @@ src/
     catalog.js        Catálogo free-exercise-db + ejercicios propios
     stats.js          1RM (Brzycki), volumen, récords, historial por ejercicio
     workout.js        Empezar entrenamientos, plantillas, comparación en vivo
+    progression.js    Objetivo para superar el 1RM estimado de la vez anterior
+    loads.js          Cargas posibles: mínimo aumento, pesos conocidos, tope de la máquina
     strong-csv.js     Importar/exportar CSV de Strong
     rest-timer.js, plates.js, format.js, router.js, api.js
   components/         Layout (navegación, descanso), encabezados, hojas, diálogos, selector de ejercicios
@@ -183,7 +196,7 @@ src/
   views/              Pantallas: Entrenar, editor, Historial, Ejercicios, Perfil, Lectura
 ```
 
-**API:** `GET /api/bootstrap` (todo), `GET|POST|DELETE /api/{workouts|templates|exercises}`
+**API:** `GET /api/bootstrap` (todo), `GET|POST|DELETE /api/{workouts|templates|exercises|exercise_prefs}`
 (`POST` acepta un objeto o una lista y hace upsert por `id`; `DELETE ?id=`), `GET /api/health`,
 `GET /api/summary` (último resumen; `?id=` uno concreto; `?list=1` los últimos 20 sin el texto) y
 `GET|POST /api/summary-refresh` (cron con `Authorization: Bearer $CRON_SECRET`, o `x-app-key`; `?force=1`).
@@ -193,7 +206,7 @@ y el backend se mantiene mínimo.
 
 ## Pendiente (ideas)
 - Peso corporal y ejercicios con lastre o asistidos (carga real).
-- Volumen semanal por músculo y rachas.
+- Mapa muscular y rachas (ver `docs/features/`).
 - Ejercicios por tiempo con cronómetro; superseries.
 - Nota fija por ejercicio (asiento, agarre) y unir ejercicios duplicados.
 - Buscador en español para el catálogo.

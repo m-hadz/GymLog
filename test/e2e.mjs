@@ -79,6 +79,15 @@ try {
   await visible(page.getByRole('heading', { name: 'Entrenar' }));
   step('login');
 
+  // Los pasos 5 y 6 comprueban la app sin el objetivo para superar (regresión): se apaga aquí
+  // y se prueba en el paso 6b.
+  await tab('profile');
+  const suggestSwitch = page.getByRole('switch', { name: 'Mostrar objetivo para superar' });
+  await suggestSwitch.focus();
+  await page.keyboard.press('Space');
+  assert.ok(!await suggestSwitch.isChecked(), 'no se desactivó el objetivo para superar');
+  await tab('train');
+
   // 2. Importar CSV de Strong
   await tab('profile');
   await page.setInputFiles('input[accept*=csv]', join(FIX, 'strong.csv'));
@@ -168,6 +177,7 @@ try {
   await cards().nth(0).getByTestId('set-rpe').first().selectOption('8');
   await cards().nth(0).getByTestId('set-check').first().click(); // usa el objetivo 100×5
   await expectCount(cards().nth(0).locator('[data-testid=set-row][data-fb=eq]'), 1);
+  await expectCount(tid('goal-line'), 0); // desactivado: sin objetivo
   await cards().nth(0).getByTestId('add-set').click();
   await cards().nth(0).getByTestId('set-weight').nth(1).fill('110');
   await cards().nth(0).getByTestId('set-check').nth(1).click();
@@ -186,6 +196,45 @@ try {
   await visible(text('🏆 3 récords')); // 1RM + PESO + VOL.
   await shot('summary');
   step('plantilla: feedback, récord, discos, RPE, deshacer, resumen');
+
+  // 6b. Objetivo para superar (feature 01). La última sentadilla fue 110 × 5 (barra 20, discos
+  // estándar): mismo peso 110 × 6, o subir a 112,5 × 5.
+  await tab('profile');
+  await suggestSwitch.focus();
+  await page.keyboard.press('Space');
+  assert.ok(await suggestSwitch.isChecked());
+  await tab('train');
+  await tid('template-start').first().click();
+  const sq2 = cards().filter({ hasText: 'Barbell Squat' }).first();
+  await visible(sq2.getByTestId('goal-line'));
+  assert.match(await sq2.getByTestId('goal-line').innerText(), /Para superar:\s*110 × 6 · o 112,5 × 5/);
+  assert.equal(await sq2.getByTestId('set-weight').first().getAttribute('placeholder'), '110');
+  assert.equal(await sq2.getByTestId('set-reps').first().getAttribute('placeholder'), '6');
+  // la otra opción pasa a ser la principal
+  await sq2.getByTestId('goal-alt').click();
+  assert.equal((await sq2.getByTestId('goal-main').innerText()).trim(), '112,5 × 5');
+  assert.equal(await sq2.getByTestId('set-weight').first().getAttribute('placeholder'), '112,5');
+  await sq2.getByTestId('goal-alt').click();
+  // ✓ en vacío guarda la principal, y supera la vez anterior
+  await sq2.getByTestId('set-check').first().click();
+  await expectValue(sq2.getByTestId('set-weight').first(), '110');
+  await expectValue(sq2.getByTestId('set-reps').first(), '6');
+  await expectCount(sq2.locator('[data-testid=set-row][data-fb=pr]'), 1);
+  // tope de la máquina en 110: solo se proponen más reps, y la preferencia llega al servidor
+  await sq2.getByTestId('exercise-menu').click();
+  await menuItem('Ajustes del ejercicio').click();
+  await tid('prefs-max').fill('110');
+  await tid('prefs-save').click();
+  await expectCount(sq2.getByTestId('goal-alt'), 0);
+  assert.match(await sq2.getByTestId('goal-line').innerText(), /Para superar:\s*110 × 6$/);
+  await page.waitForTimeout(500);
+  const sqPrefs = Object.values(db().exercise_prefs || {});
+  assert.equal(sqPrefs.length, 1);
+  assert.equal(sqPrefs[0].max_load, 110);
+  await shot('06b-objetivo');
+  await tid('cancel-workout').click();
+  await confirmUntil(page.getByRole('heading', { name: 'Entrenar' }));
+  step('objetivo para superar: línea, alternativa, ✓, tope de máquina');
 
   // 7. Editar plantilla: agregar serie y guardar
   await tab('train');

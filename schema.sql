@@ -72,3 +72,28 @@ create index if not exists video_summaries_published_idx on video_summaries (pub
 grant select, insert, update, delete on table video_summaries to service_role;
 revoke all on table video_summaries from anon, authenticated;
 alter table video_summaries enable row level security;
+
+-- Preferencias por ejercicio (v0.0.6: feature 01 y siguientes). Se puede correr solo este bloque.
+-- id = exercise_id (del catálogo o propio). Columnas: ver docs/features/00-indice.md.
+create table if not exists exercise_prefs (
+  id                       text primary key,
+  min_increment            numeric,             -- mínimo aumento posible en kg (null = según equipo)
+  max_load                 numeric,             -- tope de la máquina en kg (null = sin tope)
+  rep_max                  int,                 -- sobre estas reps se propone subir peso (null = 12)
+  compare_same_template    boolean not null default false,
+  stall_snooze_until       text,
+  load_mode                text,
+  kind                     text,
+  note                     text not null default '',
+  primary_muscles          text[],
+  secondary_muscles        text[],
+  regions                  text[],
+  training_max             numeric,
+  exclude_from_suggestions boolean not null default false,
+  created_at               timestamptz not null default now(),
+  updated_at               timestamptz not null default now()
+);
+
+grant select, insert, update, delete on table exercise_prefs to service_role;
+revoke all on table exercise_prefs from anon, authenticated;
+alter table exercise_prefs enable row level security;

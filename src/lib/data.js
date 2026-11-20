@@ -3,13 +3,16 @@
 // se encola en un "outbox" que se sincroniza con el backend cuando hay conexión.
 //
 // Hay tres "canales" a los que React se suscribe por separado (ver hooks.js):
-//   data      entrenamientos, plantillas, ejercicios propios y estado de sincronización
+//   data      entrenamientos, plantillas, ejercicios propios, preferencias por ejercicio
+//             y estado de sincronización
 //   active    entrenamiento en curso (cambia con cada tecla, solo lo escucha el editor)
 //   settings  ajustes del dispositivo
 import { notifications } from '@mantine/notifications';
 import { api } from './api.js';
 
-export const state = { workouts: [], templates: [], exercises: [], loaded: false, syncError: null, syncing: false };
+export const state = {
+  workouts: [], templates: [], exercises: [], exercise_prefs: [], loaded: false, syncError: null, syncing: false,
+};
 
 function channel() {
   const listeners = new Set();
@@ -41,6 +44,7 @@ const SORTERS = {
   workouts: (a, b) => (a.started_at < b.started_at ? 1 : -1),
   templates: (a, b) => (a.position ?? 0) - (b.position ?? 0) || a.name.localeCompare(b.name),
   exercises: (a, b) => a.name.localeCompare(b.name),
+  exercise_prefs: (a, b) => (a.id < b.id ? -1 : 1),
 };
 
 // Siempre crea una lista nueva: así React (useMemo) detecta el cambio por identidad.
@@ -60,7 +64,9 @@ function applyOp(op) {
 }
 
 const persistCache = () =>
-  writeJSON('cache', { workouts: state.workouts, templates: state.templates, exercises: state.exercises });
+  writeJSON('cache', {
+    workouts: state.workouts, templates: state.templates, exercises: state.exercises, exercise_prefs: state.exercise_prefs,
+  });
 
 export function loadCache() {
   const c = readJSON('cache', null);
@@ -75,6 +81,7 @@ export async function refresh() {
   state.workouts = data.workouts;
   state.templates = data.templates;
   state.exercises = data.exercises;
+  state.exercise_prefs = data.exercise_prefs || [];
   outbox.forEach(applyOp); // los cambios aún no sincronizados siguen ganando
   state.loaded = true;
   persistCache();
@@ -164,6 +171,7 @@ window.addEventListener('storage', (e) => {
 // ---- Ajustes del dispositivo ----
 const DEFAULT_SETTINGS = {
   defaultRest: 120, rpe: false, wake: true, bar: 20, plates: [25, 20, 15, 10, 5, 2.5, 1.25], sound: true,
+  suggest: true, // feature 01: mostrar el objetivo para superar la vez anterior
 };
 let settingsCache;
 export const getSettings = () => (settingsCache ||= { ...DEFAULT_SETTINGS, ...readJSON('settings', {}) });
@@ -175,3 +183,11 @@ export const saveSettings = (s) => {
 
 export const workoutById = (id) => state.workouts.find((w) => w.id === id);
 export const templateById = (id) => state.templates.find((t) => t.id === id);
+
+// Preferencias de un ejercicio (fila de exercise_prefs) o null si no tiene.
+export const prefsOf = (id) => state.exercise_prefs.find((p) => p.id === id) || null;
+// Guarda preferencias de un ejercicio. Se manda la fila completa: el servidor rellena con
+// valores por defecto lo que falte, así que un cambio parcial borraría lo demás.
+export function savePrefs(id, patch) {
+  upsert('exercise_prefs', { ...(prefsOf(id) || {}), ...patch, id });
+}

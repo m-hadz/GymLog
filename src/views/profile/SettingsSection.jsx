@@ -5,7 +5,7 @@ import {
 } from '@mantine/core';
 import {
   IconBell, IconBolt, IconCircleCheck, IconCloudOff, IconDeviceMobile, IconHourglass, IconKey, IconMoonStars,
-  IconRefresh, IconWeight,
+  IconRefresh, IconTrendingUp, IconWeight,
 } from '@tabler/icons-react';
 import { notify } from '../../components/dialogs.jsx';
 import { api, getKey, setKey } from '../../lib/api.js';
@@ -72,7 +72,7 @@ export function SettingsSection() {
       size="md"
       checked={!!settings[k]}
       onChange={(e) => save({ [k]: e.currentTarget.checked })}
-      data-testid={k === 'rpe' ? 'rpe-switch' : undefined}
+      data-testid={`${k}-switch`}
       aria-label={label}
     />
   );
@@ -104,6 +104,7 @@ export function SettingsSection() {
             />
           )}
         />
+        <SettingsRow icon={IconTrendingUp} color="teal" label="Mostrar objetivo para superar" description="Peso y reps para superar tu 1RM estimado de la vez anterior" right={toggle('suggest', 'Mostrar objetivo para superar')} />
         <SettingsRow icon={IconBolt} color="yellow" label="Registrar RPE por serie" description="Esfuerzo percibido del 6 al 10" right={toggle('rpe', 'Registrar RPE por serie')} />
         <SettingsRow icon={IconDeviceMobile} color="cyan" label="Pantalla encendida durante el entrenamiento" right={toggle('wake', 'Pantalla encendida durante el entrenamiento')} />
         <SettingsRow icon={IconBell} color="pink" label="Sonido al terminar el descanso" right={toggle('sound', 'Sonido al terminar el descanso')} />
