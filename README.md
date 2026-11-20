@@ -1,4 +1,4 @@
-# GymLog — v0.0.4
+# GymLog — v0.0.5
 
 Registro de entrenamientos personal, inspirado en el flujo de Strong y escrito desde cero.
 Frontend en React + [Mantine](https://mantine.dev) (compilado con Vite, instalable como PWA),
@@ -21,10 +21,18 @@ funciones serverless en Vercel y Postgres gratuito en Supabase.
   repeticiones). Todo gratis, sin muro PRO.
 - **Catálogo:** 800+ ejercicios con imágenes de [free-exercise-db](https://github.com/yuhonas/free-exercise-db)
   (dominio público), más tus ejercicios propios, que puedes vincular a una imagen del catálogo.
+- **Lectura del día:** cada mañana resume en español (8–10 min de lectura) el último video
+  largo de un canal de YouTube, para leerlo en el teléfono, también sin señal.
 - **Tus datos:** importar el CSV de Strong (sin duplicar si lo reimportas; convierte libras a
   kg), exportar en formato Strong, descargar y restaurar un respaldo JSON (se combina, no borra).
 
-### Nuevo en v0.0.4
+### Nuevo en v0.0.5
+- **Lectura del día** (pestaña nueva): un cron diario toma el último video largo del canal
+  configurado, lo transcribe y genera una lectura en español. Ver [Lectura del día](#lectura-del-día).
+- **Contra la última vez** compara por fuerza (1RM estimado de la mejor serie) en vez de por
+  volumen: subir de peso con menos series ya no aparece como retroceso.
+
+### v0.0.4
 - **Interfaz rediseñada desde cero** con React + Mantine, pensada primero para el teléfono:
   navegación inferior con íconos, encabezados fijos, hojas inferiores (selector de ejercicios,
   discos, descanso), diálogos y notificaciones propios en vez de los del navegador.
@@ -97,6 +105,40 @@ a inglés antes de exportar) y luego en GymLog **Perfil → Importar CSV de Stro
 > Supabase pausa los proyectos Free que pasan una semana sin actividad. Si entrenas varias
 > veces por semana no te va a pasar; si ocurre, se reactiva con "Resume project" en el panel.
 
+## Lectura del día
+
+Una vez al día (Vercel Cron, `0 9 * * *` UTC: ~6:00 en Chile en verano, ~5:00 en invierno):
+
+1. Lee el feed RSS público del canal (`YOUTUBE_CHANNEL_ID`) y toma el último video largo (sin Shorts).
+2. Si ese video ya está resumido, termina sin gastar nada.
+3. Si es nuevo: transcripción con [Supadata](https://supadata.ai) (siempre `mode=native`,
+   1 crédito por video; el plan Free trae 100 al mes) → resumen con OpenAI (`OPENAI_MODEL`,
+   por defecto `gpt-5-mini`, ~1 centavo de dólar) → tabla `video_summaries`.
+
+Si el video todavía no tiene subtítulos, se reintenta al día siguiente; después de 3 intentos
+fallidos se deja de gastar créditos en ese video. La app solo lee lo guardado: abrir la pestaña
+**Lectura** nunca gasta tokens, y el último resumen queda en el teléfono para leerlo sin señal.
+
+**Variables** (Vercel → Settings → Environment Variables, entorno Production; ver `.env.example`):
+`YOUTUBE_CHANNEL_ID` (empieza con `UC`), `SUPADATA_API_KEY`, `OPENAI_API_KEY`, `CRON_SECRET`
+(`openssl rand -hex 24`; Vercel la manda sola al cron) y, opcional, `OPENAI_MODEL`.
+Además hay que crear la tabla: correr en Supabase el bloque `video_summaries` de `schema.sql`.
+
+**Forzar un refresco** (por ejemplo, después de ajustar `SUMMARY_PROMPT` en `lib/summary.js`):
+
+```bash
+# buscar video nuevo (lo mismo que el botón "Buscar video nuevo" de la app)
+curl -s -X POST -H "x-app-key: $APP_PASSWORD" https://TU-APP.vercel.app/api/summary-refresh
+# regenerar aunque ya esté resumido (force solo funciona con x-app-key, no con el CRON_SECRET)
+curl -s -X POST -H "x-app-key: $APP_PASSWORD" "https://TU-APP.vercel.app/api/summary-refresh?force=1"
+# lo mismo que hace el cron
+curl -s -H "Authorization: Bearer $CRON_SECRET" https://TU-APP.vercel.app/api/summary-refresh
+```
+
+Respuesta: `{"action":"created"|"skipped"|"error", ...}`. Cada ejecución queda en Vercel →
+Logs (buscar `summary-refresh`). Efecto secundario: el cron toca Supabase a diario, así que el
+proyecto Free no debería pausarse por inactividad.
+
 ## Desarrollo local
 
 ```bash
@@ -119,7 +161,9 @@ Copia `.env.example` a `.env` si quieres que el servidor local use tu Supabase.
 api/*.js              Funciones de Vercel (una por recurso), todas delegan en lib/router.js
 lib/router.js         Validación, auth por clave (header x-app-key) y CRUD genérico
 lib/store.js          Supabase vía REST (fetch, sin SDK) o archivo JSON en local
-schema.sql            3 tablas: workouts, templates, exercises (series en JSONB)
+lib/summary.js        Lectura del día: RSS de YouTube, Supadata, OpenAI y refreshSummary
+schema.sql            4 tablas: workouts, templates, exercises (series en JSONB) y
+                      video_summaries (resúmenes de YouTube, id = video_id)
 dev-server.js         /api + Vite en desarrollo (o ./dist con --dist)
 index.html            Entrada de Vite
 public/               Íconos de la app (los PNG se generan con scripts/make-icons.mjs)
@@ -136,11 +180,13 @@ src/
     rest-timer.js, plates.js, format.js, router.js, api.js
   components/         Layout (navegación, descanso), encabezados, hojas, diálogos, selector de ejercicios
   charts/             Gráficos (línea/área y barras) sobre @mantine/charts
-  views/              Pantallas: Entrenar, editor, Historial, Ejercicios, Perfil
+  views/              Pantallas: Entrenar, editor, Historial, Ejercicios, Perfil, Lectura
 ```
 
 **API:** `GET /api/bootstrap` (todo), `GET|POST|DELETE /api/{workouts|templates|exercises}`
-(`POST` acepta un objeto o una lista y hace upsert por `id`; `DELETE ?id=`), `GET /api/health`.
+(`POST` acepta un objeto o una lista y hace upsert por `id`; `DELETE ?id=`), `GET /api/health`,
+`GET /api/summary` (último resumen; `?id=` uno concreto; `?list=1` los últimos 20 sin el texto) y
+`GET|POST /api/summary-refresh` (cron con `Authorization: Bearer $CRON_SECRET`, o `x-app-key`; `?force=1`).
 
 Las estadísticas se calculan en el cliente: con miles de entrenamientos sigue siendo instantáneo
 y el backend se mantiene mínimo.

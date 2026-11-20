@@ -18,7 +18,7 @@ const BASE = `http://localhost:${PORT}`;
 const timeout = 8000;
 
 const server = spawn(process.execPath, ['dev-server.js', '--dist'], {
-  env: { ...process.env, PORT: String(PORT), APP_PASSWORD: 'test', DATA_FILE, SUPABASE_URL: '' },
+  env: { ...process.env, PORT: String(PORT), APP_PASSWORD: 'test', DATA_FILE, SUPABASE_URL: '', YOUTUBE_CHANNEL_ID: '' },
   stdio: ['ignore', 'pipe', 'inherit'],
 });
 await new Promise((resolve, reject) => {
@@ -263,6 +263,14 @@ try {
   const lbs = Object.values(db().workouts).find((w) => w.name === 'Lbs test');
   assert.equal(lbs.exercises[0].sets[0].weight, 45.4);
   step('Strong en libras → kg');
+
+  // 13. Lectura del día: estado vacío y error claro si falta configurar el canal
+  await tab('reading');
+  await visible(text('Todavía no hay resúmenes'));
+  await tid('summary-refresh').click();
+  await visible(text('Falta la variable YOUTUBE_CHANNEL_ID'));
+  await shot('13-lectura');
+  step('lectura: estado vacío y refresco sin configurar');
   await ctx.close();
 
   // 13. Service worker: la app abre sin conexión

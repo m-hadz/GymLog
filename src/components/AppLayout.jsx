@@ -4,7 +4,7 @@
 import { useEffect, useRef } from 'react';
 import { ActionIcon, Group, Progress, Text, UnstyledButton } from '@mantine/core';
 import {
-  IconBarbell, IconChevronUp, IconHistory, IconListDetails, IconPlayerSkipForward, IconUserCircle,
+  IconBarbell, IconBook, IconChevronUp, IconHistory, IconListDetails, IconPlayerSkipForward, IconUserCircle,
 } from '@tabler/icons-react';
 import { useActiveWorkout, useNow, useRest } from '../lib/hooks.js';
 import { addRest, stopRest } from '../lib/rest-timer.js';
@@ -17,6 +17,7 @@ const TABS = [
   { key: 'history', label: 'Historial', icon: IconHistory, to: '/history' },
   { key: 'train', label: 'Entrenar', icon: IconBarbell, to: '/train' },
   { key: 'exercises', label: 'Ejercicios', icon: IconListDetails, to: '/exercises' },
+  { key: 'reading', label: 'Lectura', icon: IconBook, to: '/reading' },
 ];
 
 export function AppLayout({ tab, showNav = true, onWorkoutScreen = false, children }) {

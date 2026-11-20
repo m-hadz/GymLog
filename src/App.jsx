@@ -23,6 +23,8 @@ import { HistoryView, WorkoutDetailView, CalendarView } from './views/HistoryVie
 const ExercisesView = lazy(() => import('./views/ExercisesView.jsx').then((m) => ({ default: m.ExercisesView })));
 const ExerciseDetailView = lazy(() => import('./views/ExercisesView.jsx').then((m) => ({ default: m.ExerciseDetailView })));
 const ProfileView = lazy(() => import('./views/ProfileView.jsx').then((m) => ({ default: m.ProfileView })));
+// Lectura del día (incluye react-markdown): también diferida.
+const ReadingView = lazy(() => import('./views/ReadingView.jsx').then((m) => ({ default: m.ReadingView })));
 
 // [patrón, pestaña, componente, opciones]
 // editor: pantalla de edición a pantalla completa (sin barra de pestañas)
@@ -37,6 +39,7 @@ const ROUTES = [
   [/^exercises$/, 'exercises', () => <ExercisesView />],
   [/^exercise\/(.+)$/, 'exercises', (m) => <ExerciseDetailView key={m[1]} id={decodeURIComponent(m[1])} />],
   [/^profile$/, 'profile', () => <ProfileView />],
+  [/^reading$/, 'reading', (m, q) => <ReadingView key={q.get('id') || 'last'} id={q.get('id')} />],
   [/^login$/, '', () => <LoginView />, { bare: true }],
 ];
 
