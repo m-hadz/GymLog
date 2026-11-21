@@ -1,6 +1,6 @@
 # 08 · Mapa muscular y rango semanal de series
 
-**Esfuerzo:** M · **Depende de:** — · **Relacionada con:** 07
+**Estado:** primera versión en v0.0.7 (ver notas al final) · **Esfuerzo:** M · **Depende de:** — · **Relacionada con:** 07
 
 ## Problema y objetivo
 
@@ -131,6 +131,24 @@ ejercicio):
 - [ ] Una región usada en las últimas 4 semanas y sin series esta semana aparece como "sin trabajar esta semana".
 - [ ] Desde la lista "sin músculos asignados" se asignan músculo principal y región a un ejercicio en 3
       toques o menos.
+
+## Notas de la primera versión (v0.0.7)
+
+Por pedido del usuario se implementó antes del orden previsto, con estas decisiones:
+
+- **Solo estímulo directo:** cada serie efectiva suma 1 al grupo del ejercicio (`bodyPart`); los
+  músculos secundarios no cuentan. Los grupos son los de `BODY_PARTS` (Pecho, Dorsales, Espalda alta,
+  Lumbar, Hombros, Bíceps, Tríceps, Antebrazo, Core, Cuádriceps, Isquiotibiales, Glúteos, Aductores,
+  Abductores, Pantorrillas), no los 17 de free-exercise-db.
+- **Estados:** rezagado (rojo, "Sube el volumen") bajo la mitad de la meta; mejorable (amarillo) hasta la
+  meta; bien (verde) desde la meta. **No hay estado "sobre el rango":** mucho volumen sigue en verde.
+  Meta única editable, 8 series directas por semana por defecto (`muscleTarget`).
+- Periodo: últimas 4 semanas (por defecto) o 7 días, en series por semana; con menos historial no se
+  diluye el promedio.
+- Dibujo propio en `src/views/profile/BodyMap.jsx` (sin licencias de terceros), frente y espalda lado a lado.
+- Pendiente de este documento: regiones dentro de cada músculo, músculos por ejercicio en
+  `exercise_prefs` (hoy el grupo de un ejercicio del catálogo no se puede cambiar; el de uno propio, sí,
+  en su ficha) y el mini mapa en el resumen al terminar.
 
 ## Pruebas
 

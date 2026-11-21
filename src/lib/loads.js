@@ -73,3 +73,25 @@ export function lowerLoad(kg, pct, { inc, known = [], barbell = null }) {
   const x = r2(Math.floor(target / inc + EPS) * inc);
   return x > 0 ? x : null;
 }
+
+/**
+ * Carga posible más cercana a kg (empates hacia arriba): un peso conocido si está a menos de un
+ * mínimo aumento; si no, con barra el peso armable más cercano, y en otros equipos el múltiplo
+ * más cercano del mínimo aumento.
+ */
+export function roundLoad(kg, { inc, known = [], barbell = null }) {
+  const near = known.filter((w) => Math.abs(w - kg) <= inc + EPS);
+  if (near.length) {
+    return near.reduce((a, b) => {
+      const da = Math.abs(a - kg);
+      const db = Math.abs(b - kg);
+      return db < da - EPS || (Math.abs(db - da) <= EPS && b > a) ? b : a;
+    });
+  }
+  if (barbell) {
+    const down = snap(kg, barbell, -1);
+    const up = snap(kg, barbell, 1);
+    return kg - down < up - kg - EPS ? down : up;
+  }
+  return r2(Math.floor(kg / inc + 0.5 + EPS) * inc);
+}

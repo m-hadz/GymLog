@@ -1,0 +1,51 @@
+.dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 4px 8px;
+  margin: 0 -8px;
+  border-radius: var(--mantine-radius-md);
+}
+
+.row:active {
+  background: var(--mantine-color-default-hover);
+}
+
+.status {
+  flex: none;
+  width: 104px;
+  text-align: right;
+}
+
+.legend {
+  row-gap: 4px;
+}
+
+.link {
+  font-size: inherit;
+  color: var(--mantine-color-anchor);
+  text-decoration: underline;
+}
+
+.verdict {
+  padding: 10px 12px;
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-teal-light);
+}
+
+.verdict[data-status='low'] {
+  background: var(--mantine-color-red-light);
+  color: var(--mantine-color-red-light-color);
+}
+
+.verdict[data-status='fair'] {
+  background: var(--mantine-color-yellow-light);
+}

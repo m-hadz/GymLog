@@ -1,8 +1,11 @@
 // Operaciones de entrenamiento compartidas entre pantallas: empezar uno (vacío, desde
 // plantilla o repitiendo otro), crear plantillas y comparar series con el historial.
-import { state, getActive, setActive } from './data.js';
-import { exerciseName } from './catalog.js';
-import { exerciseSessions, e1rm } from './stats.js';
+import { state, getActive, setActive, getSettings, prefsOf } from './data.js';
+import { exerciseName, getExercise } from './catalog.js';
+import { exerciseSessions, e1rm, previousSets } from './stats.js';
+import { defaultIncrement, knownWeights } from './loads.js';
+import { suggest } from './progression.js';
+import { DEFAULT_SCHEME, warmupSets } from './warmup.js';
 import { stopRest } from './rest-timer.js';
 import { uid } from './format.js';
 import { navigate } from './router.js';
@@ -33,18 +36,68 @@ export async function startWorkout({ template = null, from = null } = {}) {
     ended_at: null,
     notes: '',
     template_id: template?.id || null,
-    exercises: (src?.exercises || []).map((e) => ({
-      exercise_id: e.exercise_id,
-      name: exerciseName(e.exercise_id, e.name),
-      rest: e.rest ?? null,
-      notes: '',
-      sets: (e.sets || []).filter((s) => s.done !== false)
-        .map((s) => ({ type: s.type || 'N', weight: null, reps: null, done: false, target: { weight: s.weight, reps: s.reps } })),
-    })),
+    exercises: (src?.exercises || []).map((e) => {
+      const sets = (e.sets || []).filter((s) => s.done !== false)
+        .map((s) => ({ type: s.type || 'N', weight: null, reps: null, done: false, target: { weight: s.weight, reps: s.reps } }));
+      const ex = {
+        exercise_id: e.exercise_id,
+        name: exerciseName(e.exercise_id, e.name),
+        rest: e.rest ?? null,
+        notes: '',
+        sets,
+      };
+      if (template && e.auto_warmup) {
+        ex.auto_warmup = true;
+        if (!sets.some((s) => s.type === 'W')) {
+          const work = startWeight(e.exercise_id, sets, template.id);
+          ex.sets = [...warmupFor(ex, work).map((w) => ({ type: 'W', weight: w.weight, reps: w.reps, done: false })), ...sets];
+        }
+      }
+      return ex;
+    }),
   };
   setActive(w);
   navigate('/workout');
   return true;
+}
+
+export function isBarbell(ex) {
+  const e = getExercise(ex.exercise_id);
+  return e?.category === 'Barra' || /barbell|barra\b/i.test(exerciseName(ex.exercise_id, ex.name));
+}
+
+// Lo que hace falta para calcular cargas posibles de un ejercicio (ver loads.js).
+export function loadContext(ex, workouts = state.workouts, settings = getSettings()) {
+  const category = getExercise(ex.exercise_id)?.category;
+  const prefs = prefsOf(ex.exercise_id);
+  return {
+    category,
+    prefs,
+    inc: prefs?.min_increment || defaultIncrement(category),
+    known: knownWeights(workouts, ex.exercise_id),
+    barbell: isBarbell(ex) ? { bar: settings.bar, plates: settings.plates } : null,
+  };
+}
+
+// Series de calentamiento para un peso de trabajo, con el esquema de los ajustes.
+export function warmupFor(ex, work, workouts = state.workouts, settings = getSettings()) {
+  const { inc, known, barbell } = loadContext(ex, workouts, settings);
+  return warmupSets(work, { inc, known, barbell, scheme: settings.warmupScheme || DEFAULT_SCHEME });
+}
+
+// Peso de trabajo al empezar: objetivo para superar → objetivo de la plantilla → vez anterior.
+function startWeight(exId, sets, templateId) {
+  const settings = getSettings();
+  const first = sets.find((s) => s.type !== 'W' && s.type !== 'D');
+  if (settings.suggest !== false) {
+    const ctx = loadContext({ exercise_id: exId });
+    const g = suggest({
+      workouts: state.workouts, exId, templateId, prefs: ctx.prefs, increment: ctx.inc, barbell: ctx.barbell,
+    });
+    if (g?.main.weight) return g.main.weight;
+  }
+  if (first?.target?.weight) return first.target.weight;
+  return previousSets(state.workouts, exId).find((s) => s.type !== 'W' && s.weight)?.weight || 0;
 }
 
 export function templateFromWorkout(w, name = w.name) {

@@ -9,6 +9,7 @@ import { getExercise } from '../../lib/catalog.js';
 import { useCatalog } from '../../lib/hooks.js';
 import { weeklySummary } from '../../lib/stats.js';
 import { mondayOf, setsByBodyPart } from './summary.js';
+import { MuscleSection } from './MuscleSection.jsx';
 
 const RANGES = [[12, '12 semanas'], [26, '6 meses'], [52, '1 año']];
 let rememberedRange = 12; // se conserva al cambiar de pestaña
@@ -61,6 +62,8 @@ export function ProgressSection({ workouts }) {
       >
         <PeriodBarChart bars={bars('volume')} format={vol} axisFormat={volAxis} average={avgVolume} color="grape.5" />
       </ChartCard>
+
+      <MuscleSection workouts={workouts} />
 
       <ChartCard
         title="Series por grupo muscular"

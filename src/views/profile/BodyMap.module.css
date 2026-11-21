@@ -1,0 +1,41 @@
+.root {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.figure {
+  margin: 0;
+  min-width: 0;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.base path {
+  fill: var(--mantine-color-default-hover);
+}
+
+.zone {
+  cursor: pointer;
+  stroke: var(--mantine-color-body);
+  stroke-width: 1.5;
+  transition: opacity 120ms ease;
+}
+
+.zone[data-selected] {
+  stroke: var(--mantine-color-text);
+  stroke-width: 2.5;
+}
+
+.caption {
+  margin-top: 4px;
+  text-align: center;
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+}

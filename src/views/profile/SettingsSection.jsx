@@ -14,6 +14,7 @@ import { refresh, saveSettings } from '../../lib/data.js';
 import { fmtNum, num } from '../../lib/format.js';
 import { useSettings } from '../../lib/hooks.js';
 import { SettingsGroup, SettingsRow } from './SettingsList.jsx';
+import { WarmupSettings } from './WarmupSettings.jsx';
 
 const save = (patch) => { saveSettings(patch); notify.success('Guardado'); };
 const platesText = (plates) => plates.map((p) => fmtNum(p, 2)).join('; ');
@@ -139,6 +140,8 @@ export function SettingsSection() {
           )}
         />
       </SettingsGroup>
+
+      <WarmupSettings />
 
       <SettingsGroup>
         <SettingsRow
