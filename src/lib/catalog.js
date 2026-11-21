@@ -11,20 +11,21 @@ const IMG_BASE = `https://cdn.jsdelivr.net/gh/${REPO}@main/exercises/`;
 
 // Grupos por músculo (no "Brazos" ni "Piernas": juntar bíceps, tríceps y antebrazo infla el
 // volumen de ese grupo frente a los demás).
-export const BODY_PARTS = ['Pecho', 'Espalda', 'Hombros', 'Bíceps', 'Tríceps', 'Antebrazo', 'Cuádriceps',
-  'Isquiotibiales', 'Glúteos', 'Aductores', 'Pantorrillas', 'Core', 'Cardio', 'Otro'];
-// Grupos antiguos (antes de v0.0.6) → grupos en que se separan
+export const BODY_PARTS = ['Pecho', 'Dorsales', 'Espalda alta', 'Lumbar', 'Hombros', 'Bíceps', 'Tríceps', 'Antebrazo', 'Cuádriceps',
+  'Isquiotibiales', 'Glúteos', 'Aductores', 'Abductores', 'Pantorrillas', 'Core', 'Cardio', 'Otro'];
+// Grupos antiguos (antes de v0.0.6, Espalda antes de v0.0.7) → grupos en que se separan
 const LEGACY_PARTS = {
+  Espalda: ['Dorsales', 'Espalda alta', 'Lumbar'],
   Brazos: ['Bíceps', 'Tríceps', 'Antebrazo'],
-  Piernas: ['Cuádriceps', 'Isquiotibiales', 'Glúteos', 'Aductores', 'Pantorrillas'],
+  Piernas: ['Cuádriceps', 'Isquiotibiales', 'Glúteos', 'Aductores', 'Abductores', 'Pantorrillas'],
 };
 export const CATEGORIES = ['Barra', 'Mancuerna', 'Máquina', 'Polea', 'Peso corporal', 'Kettlebell',
   'Banda', 'Barra Z', 'Cardio', 'Otro'];
 
 const MUSCLE_TO_PART = {
-  abdominals: 'Core', abductors: 'Glúteos', adductors: 'Aductores', biceps: 'Bíceps', calves: 'Pantorrillas',
-  chest: 'Pecho', forearms: 'Antebrazo', glutes: 'Glúteos', hamstrings: 'Isquiotibiales', lats: 'Espalda',
-  'lower back': 'Espalda', 'middle back': 'Espalda', neck: 'Otro', quadriceps: 'Cuádriceps',
+  abdominals: 'Core', abductors: 'Abductores', adductors: 'Aductores', biceps: 'Bíceps', calves: 'Pantorrillas',
+  chest: 'Pecho', forearms: 'Antebrazo', glutes: 'Glúteos', hamstrings: 'Isquiotibiales', lats: 'Dorsales',
+  'lower back': 'Lumbar', 'middle back': 'Espalda alta', neck: 'Otro', quadriceps: 'Cuádriceps',
   shoulders: 'Hombros', traps: 'Hombros', triceps: 'Tríceps',
 };
 const EQUIPMENT_TO_CAT = {
@@ -210,15 +211,18 @@ export function hashId(str) { // FNV-1a: ids deterministas, reimportar no duplic
 
 const PART_RULES = [
   [/leg curl|romanian|rdl|stiff.leg|good morning|nordic|glute.ham/i, 'Isquiotibiales'],
-  [/hip thrust|glute|abductor|bridge/i, 'Glúteos'],
+  [/abductor/i, 'Abductores'],
   [/adductor/i, 'Aductores'],
+  [/hip thrust|glute|bridge/i, 'Glúteos'],
   [/calf/i, 'Pantorrillas'],
   [/squat|leg press|lunge|leg extension|split|step.up|sissy/i, 'Cuádriceps'],
   [/deadlift/i, 'Isquiotibiales'],
   [/reverse curl|wrist|forearm|pronation/i, 'Antebrazo'],
   [/tricep|pushdown|skullcrusher|kickback|french press/i, 'Tríceps'],
   [/curl|bicep|supination/i, 'Bíceps'],
-  [/row|pulldown|pull up|chin up|lat |pullover|back extension|shrug/i, 'Espalda'],
+  [/pulldown|pull.?up|chin.?up|\blat |pullover|keenan/i, 'Dorsales'],
+  [/back extension|hyperextension|good morning|superman/i, 'Lumbar'],
+  [/\brow\b|shrug|rhomboid/i, 'Espalda alta'],
   [/bench|chest|fly|crossover|dip|push up|pec/i, 'Pecho'],
   [/shoulder|overhead|military|lateral raise|front raise|face pull|rear delt|arnold|external rotation/i, 'Hombros'],
   [/crunch|plank|sit up|sit-up|ab wheel|leg raise|knee raise|pallof|roman chair/i, 'Core'],

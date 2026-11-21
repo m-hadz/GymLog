@@ -17,7 +17,7 @@ import { useActiveWorkout, useCatalog, useData, useNow, useRest, useSettings } f
 import {
   clearActive, getActive, getSettings, remove, setActive, state, templateById, upsert, workoutById,
 } from '../lib/data.js';
-import { exerciseName } from '../lib/catalog.js';
+import { exerciseName, getExercise } from '../lib/catalog.js';
 import { previousSets } from '../lib/stats.js';
 import { stopRest } from '../lib/rest-timer.js';
 import { fmtClock, fmtDate, fmtTime, toLocalInput, uid } from '../lib/format.js';
@@ -26,6 +26,10 @@ import { templateFromWorkout } from '../lib/workout.js';
 import { ExerciseBlock } from './workout/ExerciseBlock.jsx';
 import { openRestTimer } from './workout/sheets.jsx';
 import classes from './workout/workout.module.css';
+
+// ¿Es el primer ejercicio de su grupo muscular en el entrenamiento? (calentamiento, feature 02)
+const partOf = (e) => { const p = getExercise(e.exercise_id)?.bodyPart; return !p || p === 'Otro' ? e.exercise_id : p; };
+const isFirstOfPart = (list, i) => !list.slice(0, i).some((e) => partOf(e) === partOf(list[i]));
 
 const structure = (exs) => exs.map((e) => `${e.exercise_id}x${e.sets.length}`).join('|');
 
@@ -210,6 +214,7 @@ function Editor({ mode, doc, update, onSave, onCancel }) {
           <Stack gap="sm" mt={4}>
             {doc.exercises.map((ex, ei) => (
               <ExerciseBlock
+                firstOfPart={isFirstOfPart(doc.exercises, ei)}
                 // eslint-disable-next-line react/no-array-index-key
                 key={`${ex.exercise_id}-${ei}`}
                 ex={ex} ei={ei} count={doc.exercises.length} mode={mode} docId={doc.id} templateId={doc.template_id}

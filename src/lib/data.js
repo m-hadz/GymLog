@@ -172,6 +172,9 @@ window.addEventListener('storage', (e) => {
 const DEFAULT_SETTINGS = {
   defaultRest: 120, rpe: false, wake: true, bar: 20, plates: [25, 20, 15, 10, 5, 2.5, 1.25], sound: true,
   suggest: true, // feature 01: mostrar el objetivo para superar la vez anterior
+  // feature 02: calentamiento sugerido (línea), solo en el primer ejercicio de cada músculo
+  warmupShow: true, warmupFirstOnly: true, warmupRest: 60, warmupScheme: null, // null = DEFAULT_SCHEME
+  muscleTarget: 8, // series directas por semana para que un músculo esté "Bien" (mapa del cuerpo)
 };
 let settingsCache;
 export const getSettings = () => (settingsCache ||= { ...DEFAULT_SETTINGS, ...readJSON('settings', {}) });

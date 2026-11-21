@@ -1,6 +1,6 @@
 # 02 · Generador de series de calentamiento
 
-**Esfuerzo:** S · **Depende de:** base común B (cargas posibles) · **Relacionada con:** 01
+**Estado:** implementada en v0.0.7 · **Esfuerzo:** S · **Depende de:** base común B (cargas posibles) · **Relacionada con:** 01
 
 > **Prioridad baja para tu forma de entrenar:** en el historial no hay ninguna serie de calentamiento
 > registrada (796 de 796 son normales). Por eso se agrega un modo **solo mostrar**, que calcula el
@@ -113,6 +113,18 @@ los discos que tienes, marcadas como calentamiento (tipo `W`) para que no cuente
       la línea aparece en Chest Press y no en Chest Fly.
 - [ ] En una máquina con pesos conocidos 57 / 63 / 70, los pasos usan esos pesos cuando quedan a menos de
       un mínimo aumento del valor calculado.
+
+## Notas de implementación (v0.0.7)
+
+- Cálculo en `src/lib/warmup.js` (`warmupSets`, `parseScheme`) y `roundLoad` en `src/lib/loads.js`.
+- "Primer ejercicio de cada músculo" usa el grupo muscular del ejercicio (Pecho, Dorsales, Bíceps…);
+  los ejercicios sin grupo ("Otro") cuentan cada uno por separado.
+- La columna "Anterior" se alinea por tipo de serie: los calentamientos se comparan con los
+  calentamientos de la vez anterior y las series efectivas con las efectivas. Antes, agregar
+  calentamientos corría la comparación.
+- Al reemplazar, las series de calentamiento ya hechas se conservan y no se repiten.
+- No se implementó la línea "por lado: 20 + 5" bajo cada serie con barra; la calculadora de discos
+  sigue en el menú del ejercicio.
 
 ## Pruebas
 

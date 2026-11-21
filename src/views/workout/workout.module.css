@@ -387,3 +387,23 @@
   text-decoration: underline;
   text-align: left;
 }
+
+/* Calentamiento sugerido (feature 02) */
+.warm {
+  background: var(--mantine-color-orange-light);
+}
+
+.warm .goalIcon {
+  color: var(--mantine-color-orange-light-color);
+}
+
+.warmBtn {
+  grid-column: 2;
+  justify-self: start;
+  margin-top: 2px;
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 650;
+  color: var(--mantine-color-orange-light-color);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

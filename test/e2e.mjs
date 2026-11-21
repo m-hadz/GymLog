@@ -236,6 +236,35 @@ try {
   await confirmUntil(page.getByRole('heading', { name: 'Entrenar' }));
   step('objetivo para superar: línea, alternativa, ✓, tope de máquina');
 
+  // 6c. Calentamiento (feature 02): peso de trabajo = objetivo 110 kg → 20×10, 45×5, 65×5, 87,5×3
+  await tid('template-start').first().click();
+  const sq3 = cards().filter({ hasText: 'Barbell Squat' }).first();
+  await visible(sq3.getByTestId('warmup-line'));
+  assert.match(await sq3.getByTestId('warmup-line').innerText(), /Calentamiento:\s*20 × 10 · 45 × 5 · 65 × 5 · 87,5 × 3/);
+  await sq3.getByTestId('warmup-add').click();
+  await expectCount(sq3.locator('[data-testid=set-type][data-type=W]'), 4);
+  await expectCount(sq3.getByTestId('warmup-line'), 0);
+  // "Anterior" se alinea por tipo: los calentamientos no corren la serie efectiva
+  assert.equal((await sq3.getByTestId('set-prev').nth(0).innerText()).trim(), '—');
+  assert.equal((await sq3.getByTestId('set-prev').nth(4).innerText()).trim(), '100 × 5');
+  assert.equal(await sq3.getByTestId('set-reps').nth(4).getAttribute('placeholder'), '6');
+  // cambiar el peso de trabajo ofrece recalcular
+  await sq3.getByTestId('set-weight').nth(4).fill('100');
+  await sq3.getByTestId('warmup-recalc').click();
+  await expectValue(sq3.getByTestId('set-weight').nth(1), '40');
+  await expectValue(sq3.getByTestId('set-weight').nth(3), '80');
+  await sq3.getByTestId('set-check').first().click();
+  await visible(page.locator('#rest-bar'));
+  // el menú no duplica: pide confirmación y reemplaza solo las pendientes
+  await sq3.getByTestId('exercise-menu').click();
+  await menuItem('Agregar calentamiento').click();
+  await tid('confirm-ok').click();
+  await expectCount(sq3.locator('[data-testid=set-type][data-type=W]'), 4);
+  await shot('06c-calentamiento');
+  await tid('cancel-workout').click();
+  await confirmUntil(page.getByRole('heading', { name: 'Entrenar' }));
+  step('calentamiento: línea, agregar, alinear anterior, recalcular, sin duplicar');
+
   // 7. Editar plantilla: agregar serie y guardar
   await tab('train');
   await tid('template-menu').first().click();
@@ -283,6 +312,20 @@ try {
   await page.waitForTimeout(500);
   assert.equal(count(db().workouts), 6);
   step('calendario, exportar y respaldo sin duplicar');
+
+  // 10b. Mapa del cuerpo: estímulo directo por músculo (sentadillas recientes → cuádriceps con series)
+  await tab('profile');
+  await visible(tid('body-map'));
+  await expectCount(tid('muscle-row'), 15);
+  const quad = tid('muscle-row').filter({ hasText: 'Cuádriceps' });
+  assert.notEqual(await quad.getAttribute('data-status'), null);
+  assert.match(await quad.innerText(), /\/sem/);
+  await tid('muscle-row').filter({ hasText: 'Glúteos' }).click();
+  await visible(tid('muscle-detail').getByText('Sin estímulo directo'));
+  await tid('muscle-card').screenshot({ path: join(SHOTS, '10b-musculos.png') });
+  await page.keyboard.press('Escape');
+  await tid('muscle-detail').waitFor({ state: 'detached' });
+  step('mapa del cuerpo y estímulo directo por músculo');
 
   // 11. Sin conexión: guardar y sincronizar al volver
   await ctx.route('**/api/**', (r) => r.abort());

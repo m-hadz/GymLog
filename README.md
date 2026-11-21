@@ -1,4 +1,4 @@
-# GymLog — v0.0.6
+# GymLog — v0.0.7
 
 Registro de entrenamientos personal, inspirado en el flujo de Strong y escrito desde cero.
 Frontend en React + [Mantine](https://mantine.dev) (compilado con Vite, instalable como PWA),
@@ -26,7 +26,21 @@ funciones serverless en Vercel y Postgres gratuito en Supabase.
 - **Tus datos:** importar el CSV de Strong (sin duplicar si lo reimportas; convierte libras a
   kg), exportar en formato Strong, descargar y restaurar un respaldo JSON (se combina, no borra).
 
-### Nuevo en v0.0.6
+### Nuevo en v0.0.7
+- **Calentamiento sugerido** ([feature 02](docs/features/02-calentamiento.md)): una línea en el
+  primer ejercicio de cada músculo ("Calentamiento: 20 × 10 · 45 × 5 · 65 × 5") con pesos que se
+  pueden armar (discos, pesos que ya usaste o mínimo aumento), y "Agregar" para sumarlas como series de
+  calentamiento. También en el menú del ejercicio y automático por plantilla. Esquema y descanso
+  editables en Perfil.
+- "Anterior" se alinea por tipo de serie: agregar calentamientos ya no corre la comparación.
+- **Espalda** se separa en Dorsales y Espalda alta (y Lumbar para ejercicios de zona lumbar), y
+  Abductores pasa a ser su propio grupo (antes contaba como Glúteos).
+- **Mapa del cuerpo** en Perfil (frente y espalda, 2D): cada músculo se colorea según sus series
+  **directas** por semana (últimas 4 semanas o 7 días). Rojo = rezagado, sube el volumen; amarillo =
+  mejorable; verde = bien. Mucho volumen nunca se marca como problema. Meta editable (8 por defecto).
+  Tocar un músculo muestra qué ejercicios lo trabajan.
+
+### v0.0.6
 - **Objetivo para superar** ([feature 01](docs/features/01-sugerencia-progresion.md)): en el
   entrenamiento, cada ejercicio muestra cuántas reps necesitas con el mismo peso para superar tu
   1RM estimado de la vez anterior, y con el siguiente peso posible ("Para superar: 63 × 8 · o 65 × 7").
@@ -189,6 +203,8 @@ src/
     workout.js        Empezar entrenamientos, plantillas, comparación en vivo
     progression.js    Objetivo para superar el 1RM estimado de la vez anterior
     loads.js          Cargas posibles: mínimo aumento, pesos conocidos, tope de la máquina
+    warmup.js         Series de calentamiento por porcentaje del peso de trabajo
+    muscles.js        Estímulo directo por grupo muscular (mapa del cuerpo)
     strong-csv.js     Importar/exportar CSV de Strong
     rest-timer.js, plates.js, format.js, router.js, api.js
   components/         Layout (navegación, descanso), encabezados, hojas, diálogos, selector de ejercicios
@@ -206,7 +222,7 @@ y el backend se mantiene mínimo.
 
 ## Pendiente (ideas)
 - Peso corporal y ejercicios con lastre o asistidos (carga real).
-- Mapa muscular y rachas (ver `docs/features/`).
+- Rachas y regiones dentro de cada músculo (ver `docs/features/`).
 - Ejercicios por tiempo con cronómetro; superseries.
 - Nota fija por ejercicio (asiento, agarre) y unir ejercicios duplicados.
 - Buscador en español para el catálogo.
