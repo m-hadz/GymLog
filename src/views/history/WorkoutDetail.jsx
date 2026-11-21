@@ -18,6 +18,7 @@ import { Page, PageHeader } from '../../components/PageHeader.jsx';
 import { EmptyState, ExerciseThumb, SectionTitle, StatGrid, StatTile, DeltaBadge } from '../../components/ui.jsx';
 import { confirmDialog, notify, promptDialog } from '../../components/dialogs.jsx';
 import { getExercise } from '../../lib/catalog.js';
+import { WorkoutMuscles } from './WorkoutMuscles.jsx';
 import classes from './history.module.css';
 
 const TYPE_COLOR = { W: 'orange', D: 'grape', F: 'red' };
@@ -289,6 +290,7 @@ export function WorkoutDetail({ id, query }) {
         </Box>
 
         <RecordsCard w={w} marks={marks} />
+        <WorkoutMuscles w={w} />
         {prev ? <CompareCard w={w} prev={prev} /> : null}
 
         {w.notes ? (

@@ -6,6 +6,10 @@
   margin: 0 auto;
 }
 
+.root[data-compact] {
+  max-width: 240px;
+}
+
 .figure {
   margin: 0;
   min-width: 0;

@@ -24,6 +24,7 @@ import { EmptyState, ExerciseThumb, StatGrid, StatTile } from '../../components/
 import { confirmDialog } from '../../components/dialogs.jsx';
 import { openExerciseForm } from '../../components/ExercisePicker.jsx';
 import { ExercisePrefsForm } from './ExercisePrefs.jsx';
+import { MuscleAssignForm } from './MuscleAssign.jsx';
 import classes from './ExerciseDetail.module.css';
 
 const TABS = [['about', 'Descripción'], ['history', 'Historial'], ['charts', 'Gráficas'], ['records', 'Registros']];
@@ -203,6 +204,13 @@ function About({ ex, id, name, note }) {
       ) : null}
 
       {noteRow}
+
+      <Box>
+        <Text size="xs" fw={700} c="dimmed" tt="uppercase" className={classes.label} mb={8}>Músculo</Text>
+        <Card withBorder radius="md" padding="md">
+          <MuscleAssignForm id={ex.id} />
+        </Card>
+      </Box>
 
       <Box>
         <Text size="xs" fw={700} c="dimmed" tt="uppercase" className={classes.label} mb={8}>Ajustes del ejercicio</Text>

@@ -194,6 +194,7 @@ try {
   await visible(text('Contra la última vez'));
   assert.match(await tid('summary-stats').innerText(), /vs anterior/);
   await visible(text('🏆 3 récords')); // 1RM + PESO + VOL.
+  await visible(tid('workout-muscles').getByTestId('workout-muscle').first()); // mini mapa (feature 08)
   await shot('summary');
   step('plantilla: feedback, récord, discos, RPE, deshacer, resumen');
 
@@ -326,6 +327,32 @@ try {
   await page.keyboard.press('Escape');
   await tid('muscle-detail').waitFor({ state: 'detached' });
   step('mapa del cuerpo y estímulo directo por músculo');
+
+  // 10b2. Regiones y grupo por ejercicio (feature 08): asignar "Vastos" a la sentadilla en 2 toques
+  await quad.click();
+  await visible(tid('muscle-regions'));
+  const assign = tid('region-assign').first();
+  const squatName = (await assign.innerText()).split('\n')[0];
+  await assign.click();
+  await tid('assign-region-cuadriceps.vastos').click();
+  await page.keyboard.press('Escape');
+  await tid('muscle-assign').waitFor({ state: 'detached' });
+  const vastos = tid('region-row').filter({ hasText: 'Vastos' });
+  assert.match(await vastos.innerText(), /\/sem/);
+  assert.match(await tid('region-row').filter({ hasText: 'Recto femoral' }).innerText(), /—/);
+  await shot('10b2-regiones');
+  await page.keyboard.press('Escape');
+  await tid('muscle-detail').waitFor({ state: 'detached' });
+  // Cambiar el grupo: sus series pasan a Glúteos; la región de cuádriceps se descarta
+  const glutes = () => tid('muscle-row').filter({ hasText: 'Glúteos' });
+  assert.match(await glutes().innerText(), /0\/sem/);
+  await tid('muscle-row').filter({ hasText: 'Cuádriceps' }).click();
+  await tid('muscle-detail').getByText(squatName, { exact: true }).click();
+  await tid('assign-group-Glúteos').click();
+  await page.goBack();
+  await tab('profile');
+  assert.doesNotMatch(await glutes().innerText(), /^Glúteos\s*0\/sem/);
+  step('regiones: asignar en 2 toques, series por región, cambiar el grupo');
 
   // 10c. Peso corporal (feature 03): dos registros, tarjeta, mismo día reemplaza, gráfico y borrar
   const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

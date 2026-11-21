@@ -32,6 +32,7 @@ export function muscleStats(workouts, { days = 28, now = Date.now(), target = DE
 
   const by = new Map(MUSCLE_GROUPS.map((g) => [g, { sets: 0, exercises: new Map() }]));
   let unassigned = 0;
+  const unassignedEx = new Map();
   for (const w of workouts) {
     const t = Date.parse(w.started_at);
     if (t < from || t > now) continue;
@@ -39,7 +40,13 @@ export function muscleStats(workouts, { days = 28, now = Date.now(), target = DE
       const n = (ex.sets || []).filter(isWorking).length;
       if (!n) continue;
       const g = by.get(partOf(ex.exercise_id));
-      if (!g) { unassigned += n; continue; }
+      if (!g) {
+        unassigned += n;
+        const u = unassignedEx.get(ex.exercise_id) || { id: ex.exercise_id, name: nameOf(ex.exercise_id, ex.name), sets: 0 };
+        u.sets += n;
+        unassignedEx.set(ex.exercise_id, u);
+        continue;
+      }
       g.sets += n;
       const e = g.exercises.get(ex.exercise_id) || { id: ex.exercise_id, name: nameOf(ex.exercise_id, ex.name), sets: 0 };
       e.sets += n;
@@ -54,5 +61,5 @@ export function muscleStats(workouts, { days = 28, now = Date.now(), target = DE
       exercises: [...g.exercises.values()].sort((a, b) => b.sets - a.sets),
     };
   });
-  return { weeks, groups, unassigned };
+  return { weeks, groups, unassigned, unassignedExercises: [...unassignedEx.values()].sort((a, b) => b.sets - a.sets) };
 }

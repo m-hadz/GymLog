@@ -16,6 +16,7 @@ import { kindOf } from '../lib/effective.js';
 import { MIN_YEAR_WORKOUTS, monthReport, reportPeriods, yearReport } from '../lib/report.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, fmtVolume, plural } from '../lib/format.js';
 import { navigate } from '../lib/router.js';
+import { state } from '../lib/data.js';
 import classes from './report.module.css';
 
 import { monthNameOf as monthName } from './profile/reportNames.js';
@@ -280,7 +281,7 @@ export function ReportView({ year, month = null }) {
       stallable: (id) => kindOf(id) !== 'tiempo',
     };
     return isYear ? yearReport(workouts, year, opts) : monthReport(workouts, year, month, opts);
-  }, [workouts, year, month, isYear, catalogVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [workouts, year, month, isYear, catalogVersion, state.exercises, state.exercise_prefs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const key = isYear ? String(year) : `${year}-${pad(month)}`;
   const enabled = isYear

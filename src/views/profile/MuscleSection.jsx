@@ -1,13 +1,15 @@
 // Estímulo directo por músculo: mapa del cuerpo (frente y espalda) coloreado por estado y lista
 // de músculos, con los rezagados primero. Solo avisa de poco volumen; mucho volumen es "Bien".
 import { useMemo, useState } from 'react';
-import { Box, Group, SegmentedControl, Stack, Text, UnstyledButton } from '@mantine/core';
+import { Badge, Box, Group, SegmentedControl, Stack, Text, UnstyledButton } from '@mantine/core';
 import { ChartCard, fnum } from '../../charts/charts.jsx';
 import { openSheet } from '../../components/Sheet.jsx';
 import { promptDialog, notify } from '../../components/dialogs.jsx';
 import { exerciseName, getExercise } from '../../lib/catalog.js';
-import { saveSettings } from '../../lib/data.js';
-import { useCatalog, useSettings } from '../../lib/hooks.js';
+import { prefsOf, saveSettings, state } from '../../lib/data.js';
+import { useAnalysis, useCatalog, useData, useSettings } from '../../lib/hooks.js';
+import { regionStats, regionsFor } from '../../lib/regions.js';
+import { openMuscleAssign } from '../exercises/MuscleAssign.jsx';
 import { DEFAULT_MUSCLE_TARGET, muscleStats } from '../../lib/muscles.js';
 import { navigate } from '../../lib/router.js';
 import { BodyMap } from './BodyMap.jsx';
@@ -24,7 +26,58 @@ let rememberedDays = '28';
 
 const perWeekText = (v) => `${fnum(v, v < 10 ? 1 : 0)}/sem`;
 
-function MuscleDetail({ g, target, weeks, close }) {
+const regionsOfId = (id) => prefsOf(id)?.regions;
+const partOfId = (id) => getExercise(id)?.bodyPart;
+
+function RegionList({ part, days, weeks, close }) {
+  const workouts = useAnalysis();
+  useData();
+  const catalogVersion = useCatalog();
+  const r = useMemo(
+    () => regionStats(workouts, { group: part, days, weeks, partOf: partOfId, regionsOf: regionsOfId, nameOf: exerciseName }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [workouts, part, days, weeks, catalogVersion, state.exercise_prefs],
+  );
+  if (!regionsFor(part).length) return null;
+  const any = r.regions.some((x) => x.sets || x.unworked);
+  return (
+    <Box data-testid="muscle-regions">
+      <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={6}>Por región</Text>
+      {any ? (
+        <Stack gap={2}>
+          {r.regions.map((x) => (
+            <Group key={x.key} className={classes.row} wrap="nowrap" data-testid="region-row" data-unworked={x.unworked || undefined}>
+              <Text size="sm" fw={550} style={{ flex: 1 }} truncate="end">{x.label}</Text>
+              {x.unworked ? <Badge size="sm" variant="light" color="orange" data-testid="region-unworked">Sin trabajar esta semana</Badge> : null}
+              <Text size="sm" c={x.sets ? undefined : 'dimmed'} className="tnum">{x.sets ? `${fnum(x.perWeek, 1)}/sem` : '—'}</Text>
+            </Group>
+          ))}
+        </Stack>
+      ) : (
+        <Text size="sm" c="dimmed">Asigna a cada ejercicio la región que busca para ver aquí cómo se reparten las series.</Text>
+      )}
+      {r.unassigned.length ? (
+        <Box mt="sm">
+          <Text size="xs" c="dimmed" mb={4}>Sin región asignada:</Text>
+          <Stack gap={2}>
+            {r.unassigned.map((e) => (
+              <UnstyledButton key={e.id} className={classes.row} onClick={() => openMuscleAssign({ id: e.id, name: e.name })} data-testid="region-assign">
+                <Text size="sm" fw={550} truncate="end" style={{ flex: 1 }}>{e.name}</Text>
+                <Text size="xs" fw={600} c="brand">Asignar</Text>
+              </UnstyledButton>
+            ))}
+          </Stack>
+        </Box>
+      ) : null}
+      <Text size="xs" c="dimmed" mt={6}>
+        Cada serie suma 1 a cada región de su ejercicio. "Sin trabajar esta semana": tiene series en las últimas 4
+        semanas y ninguna en los últimos 7 días.
+      </Text>
+    </Box>
+  );
+}
+
+function MuscleDetail({ g, target, weeks, days, close }) {
   const missing = Math.max(0, target - g.perWeek);
   return (
     <Stack gap="md" data-testid="muscle-detail">
@@ -46,6 +99,7 @@ function MuscleDetail({ g, target, weeks, close }) {
           <Text size="sm" fw={600}>Bien: recibe estímulo directo suficiente.</Text>
         )}
       </Box>
+      <RegionList part={g.part} days={days} weeks={weeks} close={close} />
       {g.exercises.length ? (
         <Box>
           <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={6}>Ejercicios que lo trabajan directo</Text>
@@ -64,7 +118,7 @@ function MuscleDetail({ g, target, weeks, close }) {
       ) : null}
       <Text size="xs" c="dimmed">
         Solo cuentan las series efectivas de ejercicios cuyo grupo es {g.part}. Si un ejercicio está mal
-        catalogado, cambia su grupo en su ficha (Descripción → Editar).
+        catalogado, cambia su grupo en su ficha (Músculo).
       </Text>
     </Stack>
   );
@@ -82,7 +136,7 @@ export function MuscleSection({ workouts }) {
       days: Number(days), target, partOf: (id) => getExercise(id)?.bodyPart, nameOf: exerciseName,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workouts, days, target, catalogVersion],
+    [workouts, days, target, catalogVersion, state.exercises, state.exercise_prefs],
   );
   const byPart = useMemo(() => new Map(data.groups.map((g) => [g.part, g])), [data]);
   const sorted = useMemo(() => [...data.groups].sort((a, b) => a.perWeek - b.perWeek || a.part.localeCompare(b.part)), [data]);
@@ -95,7 +149,7 @@ export function MuscleSection({ workouts }) {
     openSheet({
       title: part,
       onClose: () => setSelected(null),
-      render: (close) => <MuscleDetail g={g} target={target} weeks={data.weeks} close={close} />,
+      render: (close) => <MuscleDetail g={g} target={target} weeks={data.weeks} days={Number(days)} close={close} />,
     });
   };
   const changeTarget = async () => {
@@ -151,8 +205,22 @@ export function MuscleSection({ workouts }) {
       <Text size="xs" c="dimmed" mt="sm">
         Meta: {target} series directas por semana.{' '}
         <UnstyledButton component="span" className={classes.link} onClick={changeTarget} data-testid="muscle-target">Cambiar</UnstyledButton>
-        {data.unassigned ? ` ${data.unassigned} series de ejercicios sin grupo muscular no cuentan.` : ''}
       </Text>
+      {data.unassignedExercises.length ? (
+        <Box mt="sm" data-testid="muscle-unassigned">
+          <Text size="xs" c="dimmed" mb={4}>
+            Sin grupo muscular ({data.unassigned} series que no cuentan). Asígnalo para que cuenten:
+          </Text>
+          <Stack gap={2}>
+            {data.unassignedExercises.map((e) => (
+              <UnstyledButton key={e.id} className={classes.row} onClick={() => openMuscleAssign({ id: e.id, name: e.name })}>
+                <Text size="sm" fw={550} truncate="end" style={{ flex: 1 }}>{e.name}</Text>
+                <Text size="xs" fw={600} c="brand">Asignar</Text>
+              </UnstyledButton>
+            ))}
+          </Stack>
+        </Box>
+      ) : null}
     </ChartCard>
   );
 }

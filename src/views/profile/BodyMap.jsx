@@ -86,11 +86,12 @@ function Figure({ zones, label, colorOf, selected, onSelect }) {
  * @param {object} p
  * @param {(part: string) => string} p.colorOf  color CSS de cada grupo
  * @param {string|null} [p.selected]
- * @param {(part: string) => void} p.onSelect
+ * @param {(part: string) => void} [p.onSelect]
+ * @param {boolean} [p.compact]  versión chica (resumen de un entrenamiento)
  */
-export function BodyMap({ colorOf, selected = null, onSelect }) {
+export function BodyMap({ colorOf, selected = null, onSelect = () => {}, compact = false }) {
   return (
-    <div className={classes.root} data-testid="body-map">
+    <div className={classes.root} data-compact={compact || undefined} data-testid="body-map">
       <Figure zones={FRONT} label="Frente" colorOf={colorOf} selected={selected} onSelect={onSelect} />
       <Figure zones={BACK} label="Espalda" colorOf={colorOf} selected={selected} onSelect={onSelect} />
     </div>

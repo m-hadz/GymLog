@@ -50,6 +50,12 @@ funciones serverless en Vercel y Postgres gratuito en Supabase.
   suma meses, racha más larga, mejora de los más hechos, ejercicios nuevos y "como levantar N autos".
   Entrada desde Perfil → Progreso y desde cada mes del Historial. Botón "Compartir" con vista previa de
   una imagen del resumen (se crea en el teléfono) para compartirla o descargarla.
+- **Regiones por músculo y grupo editable** ([feature 08](docs/features/08-mapa-muscular.md), completa
+  la primera versión de v0.0.7): cada ejercicio puede tener 1–2 regiones (pecho superior, deltoide
+  lateral, braquial…) y la hoja de cada músculo muestra las series por región, marca "sin trabajar esta
+  semana" y lista los ejercicios sin región para asignarla en 2 toques. El grupo de un ejercicio del
+  catálogo ahora se puede corregir (ficha → Músculo). Mini mapa "Músculos trabajados" en el resumen de
+  cada entrenamiento.
 
 ### v0.0.8
 - **Peso corporal y medidas** ([feature 03](docs/features/03-peso-corporal-medidas.md)): Perfil →
@@ -240,6 +246,7 @@ src/
     loads.js          Cargas posibles: mínimo aumento, pesos conocidos, tope de la máquina
     warmup.js         Series de calentamiento por porcentaje del peso de trabajo
     muscles.js        Estímulo directo por grupo muscular (mapa del cuerpo)
+    regions.js        Regiones dentro de cada grupo muscular (feature 08)
     body.js           Peso de tendencia, ritmo, peso a una fecha, grasa estimada
     kinds.js          Tipos de ejercicio, carga efectiva con peso corporal, tiempo mm:ss
     effective.js      Entrenamientos con carga efectiva (cacheado) para mostrar y analizar
