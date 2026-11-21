@@ -556,6 +556,30 @@ try {
   await tid('confirm-ok').click();
   step('estancamiento: tarjeta del perfil, etiqueta, reinicio 57 × 10 con ✓, ignorar por 7 sesiones');
 
+  // 12e. Resumen mensual y anual (feature 07)
+  await tab('history');
+  await tid('month-report').last().click(); // el mes más antiguo del historial
+  for (const id of ['report-totals', 'report-calendar', 'report-constancy', 'report-records', 'report-top', 'report-muscles']) {
+    await visible(tid(id));
+  }
+  await visible(tid('report-totals').getByText('Primer periodo registrado: sin comparación.'));
+  await tid('report-next').click();
+  await visible(tid('report-totals').getByText(/^Contra el mes anterior/));
+  await shot('12e-resumen');
+  await tid('report-share').click();
+  await visible(tid('share-preview'));
+  const [shareDl] = await Promise.all([page.waitForEvent('download'), tid('share-download').click()]);
+  if (!/^gymlog-resumen-\d{4}-\d{2}\.png$/.test(shareDl.suggestedFilename())) throw new Error(`nombre de la imagen: ${shareDl.suggestedFilename()}`);
+  await shot('12e-compartir');
+  await page.keyboard.press('Escape');
+  await tid('share-sheet').waitFor({ state: 'hidden' });
+  await tid('report-kind').getByText('Año').click();
+  await visible(tid('report-cars'));
+  await visible(tid('report-new'));
+  await tab('profile');
+  await visible(tid('report-entry'));
+  step('resumen: mes con secciones, primer mes, siguiente mes con comparación, compartir imagen, año');
+
   // 13. Lectura del día: estado vacío y error claro si falta configurar el canal
   await tab('reading');
   await visible(text('Todavía no hay resúmenes'));

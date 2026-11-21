@@ -45,6 +45,24 @@ export function bestSet(sets) {
   return best;
 }
 
+// Una sesión de un ejercicio: sus series hechas en un entrenamiento, con mejores marcas.
+export function buildSession(w, sets) {
+  const working = sets.filter(isWorking);
+  const best = bestSet(working);
+  return {
+    workout: w,
+    sets,
+    working,
+    best,
+    bestE1rm: best ? e1rm(best.weight, best.reps) : 0,
+    maxWeight: Math.max(0, ...working.map((s) => s.weight || 0)),
+    volume: working.reduce((a, s) => a + setVolume(s), 0),
+    totalReps: working.reduce((a, s) => a + (s.reps || 0), 0),
+    bestSeconds: Math.max(0, ...working.map(timeOnly)),
+    totalSeconds: working.reduce((a, s) => a + timeOnly(s), 0),
+  };
+}
+
 // Sesiones de un ejercicio, en orden cronológico ascendente.
 export function exerciseSessions(workouts, exId) {
   const out = [];
@@ -52,23 +70,28 @@ export function exerciseSessions(workouts, exId) {
     const sets = (w.exercises || [])
       .filter((e) => e.exercise_id === exId)
       .flatMap((e) => (e.sets || []).filter((s) => s.done !== false));
-    if (!sets.length) continue;
-    const working = sets.filter(isWorking);
-    const best = bestSet(working);
-    out.push({
-      workout: w,
-      sets,
-      working,
-      best,
-      bestE1rm: best ? e1rm(best.weight, best.reps) : 0,
-      maxWeight: Math.max(0, ...working.map((s) => s.weight || 0)),
-      volume: working.reduce((a, s) => a + setVolume(s), 0),
-      totalReps: working.reduce((a, s) => a + (s.reps || 0), 0),
-      bestSeconds: Math.max(0, ...working.map(timeOnly)),
-      totalSeconds: working.reduce((a, s) => a + timeOnly(s), 0),
-    });
+    if (sets.length) out.push(buildSession(w, sets));
   }
   return out;
+}
+
+// Sesiones de todos los ejercicios en una pasada: Map(exercise_id → sesiones ascendentes).
+export function sessionsIndex(workouts) {
+  const map = new Map();
+  for (const w of [...workouts].sort(asc)) {
+    const byEx = new Map();
+    for (const e of w.exercises || []) {
+      const done = (e.sets || []).filter((s) => s.done !== false);
+      if (!done.length) continue;
+      if (!byEx.has(e.exercise_id)) byEx.set(e.exercise_id, []);
+      byEx.get(e.exercise_id).push(...done);
+    }
+    for (const [id, sets] of byEx) {
+      if (!map.has(id)) map.set(id, []);
+      map.get(id).push(buildSession(w, sets));
+    }
+  }
+  return map;
 }
 
 export function exerciseRecords(sessions) {

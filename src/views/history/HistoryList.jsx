@@ -1,6 +1,6 @@
 // Lista del historial: agrupada por mes con encabezados fijos y tarjetas por entrenamiento.
 import { useEffect, useMemo, useState } from 'react';
-import { Badge, Box, Button, Card, CloseButton, Group, Stack, Text } from '@mantine/core';
+import { Anchor, Badge, Box, Button, Card, CloseButton, Group, Stack, Text } from '@mantine/core';
 import { useIntersection } from '@mantine/hooks';
 import { IconCalendarMonth, IconClock, IconHistory, IconTrophy, IconWeight } from '@tabler/icons-react';
 import { useAnalysis, useCatalog } from '../../lib/hooks.js';
@@ -94,7 +94,10 @@ export function HistoryList({ query }) {
       const key = `${d.getFullYear()}-${d.getMonth()}`;
       let g = byKey.get(key);
       if (!g) {
-        g = { key, label: cap(fmtDate(w.started_at, { month: 'long', year: 'numeric' })), count: 0, volume: 0, items: [] };
+        g = {
+          key, label: cap(fmtDate(w.started_at, { month: 'long', year: 'numeric' })), count: 0, volume: 0, items: [],
+          reportKey: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        };
         byKey.set(key, g);
         out.push(g);
       }
@@ -148,7 +151,10 @@ export function HistoryList({ query }) {
         {groups.map((g) => (
           <Box key={g.key} component="section">
             <Group className={classes.monthHeader} justify="space-between" wrap="nowrap">
-              <Text fw={700} size="sm">{g.label}</Text>
+              <Box>
+                <Text fw={700} size="sm">{g.label}</Text>
+                <Anchor size="xs" fw={600} onClick={() => navigate(`/report/${g.reportKey}`)} data-testid="month-report">Ver resumen del mes</Anchor>
+              </Box>
               <Text size="xs" c="dimmed" className="tnum">
                 {plural(g.count, 'entreno', 'entrenos')} · {fmtVolume(g.volume)}
               </Text>

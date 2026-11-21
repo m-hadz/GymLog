@@ -44,6 +44,12 @@ funciones serverless en Vercel y Postgres gratuito en Supabase.
   Etiqueta "Estancado" en el entrenamiento, tarjeta "Estancados" en el perfil y en la ficha. Propone un
   **reinicio** (−10 % de peso y las reps para superar tu 1RM, ajustable 5/10/15 %) como opción principal;
   "Ignorar por 7 sesiones".
+- **Resumen mensual y anual** ([feature 07](docs/features/07-resumen-mensual-anual.md)): `#/report/2026-11`
+  y `#/report/2026`. Totales contra el periodo anterior, días entrenados, constancia, récords, ejercicios
+  más hechos, progreso por ejercicio, series por músculo, mejor semana y estancados al cierre; el anual
+  suma meses, racha más larga, mejora de los más hechos, ejercicios nuevos y "como levantar N autos".
+  Entrada desde Perfil → Progreso y desde cada mes del Historial. Botón "Compartir" con vista previa de
+  una imagen del resumen (se crea en el teléfono) para compartirla o descargarla.
 
 ### v0.0.8
 - **Peso corporal y medidas** ([feature 03](docs/features/03-peso-corporal-medidas.md)): Perfil →
@@ -239,6 +245,7 @@ src/
     effective.js      Entrenamientos con carga efectiva (cacheado) para mostrar y analizar
     set-timer.js      Cronómetro de series por tiempo (guarda la hora de inicio)
     stalls.js         Ejercicios estancados (feature 06), cacheado
+    report.js         Resumen mensual y anual (feature 07)
     strong-csv.js     Importar/exportar CSV de Strong
     rest-timer.js, plates.js, format.js, router.js, api.js
   components/         Layout (navegación, descanso), encabezados, hojas, diálogos, selector de ejercicios

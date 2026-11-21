@@ -11,6 +11,7 @@ import { ProfileHero } from './profile/ProfileHero.jsx';
 import { ProgressSection } from './profile/ProgressSection.jsx';
 import { BodyCard } from './body/BodyCard.jsx';
 import { StalledCard } from './profile/StalledCard.jsx';
+import { ReportCard } from './profile/ReportCard.jsx';
 import { SettingsSection } from './profile/SettingsSection.jsx';
 import classes from './profile/Profile.module.css';
 
@@ -51,6 +52,7 @@ export function ProfileView() {
         <BodyCard />
 
         <SectionTitle>Progreso</SectionTitle>
+        <ReportCard workouts={analysis} />
         <StalledCard workouts={analysis} />
         <ProgressSection workouts={analysis} />
 

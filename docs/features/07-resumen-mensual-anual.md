@@ -1,6 +1,6 @@
 # 07 · Resumen mensual y anual
 
-**Esfuerzo:** M · **Depende de:** — · **Usa si existen:** 06 (estancados), 08 (músculos), 09 (constancia)
+**Estado:** implementada en v0.0.9 · **Esfuerzo:** M · **Depende de:** — · **Usa si existen:** 06 (estancados), 08 (músculos), 09 (constancia)
 
 ## Problema y objetivo
 
@@ -100,6 +100,24 @@ Lo mismo a escala de año, más:
 - [ ] Funciona sin conexión y se ve bien en claro y oscuro a 375 px.
 - [ ] Con 2.000 entrenamientos de prueba, el cálculo tarda menos de 100 ms (medido en el test).
 - [ ] La pantalla se carga aparte y no aumenta el bundle principal.
+
+## Notas de implementación (v0.0.9)
+
+- `src/lib/report.js`: `monthReport`, `yearReport`, `reportPeriods`; usa `sessionsIndex` (stats.js, una
+  pasada para todos los ejercicios). Con 2.000 entrenamientos: ~40 ms el mes con estancados (test).
+- Se calcula sobre los entrenamientos con carga efectiva (04/05), igual que el resto del perfil.
+- Constancia: semanas con un entrenamiento **del periodo**; la racha al cierre solo mira entrenamientos
+  anteriores al cierre. En el primer periodo registrado, las semanas se cuentan desde el primer entrenamiento.
+- "Progreso por ejercicio": `nuevo` si no hay datos del periodo anterior; la sección se oculta si ningún
+  ejercicio tiene con qué compararse (primer año).
+- Estancados al cierre: misma regla que la tarjeta del perfil, evaluada a la fecha de cierre (sin "ignorar").
+- Entrada: Perfil → Progreso (destacada los primeros 7 días; "Tu AAAA" del 15 dic al 31 ene) e Historial
+  ("Ver resumen del mes" en cada mes). Selector ‹ mes › con los meses sin datos desactivados; Mes / Año.
+- Compartir: botón en el encabezado y al final del resumen. Abre una hoja con la vista previa de una
+  imagen 1080 × 1350 (4:5) dibujada en canvas en el teléfono (`src/views/report/shareImage.js`): título,
+  los 4 totales con su variación, el calendario del mes (o barras por mes en el anual) y dos líneas
+  (récords y constancia, o autos y racha más larga). Botones "Compartir" (`navigator.share({ files })`,
+  solo si el navegador lo permite) y "Descargar" (PNG `gymlog-resumen-AAAA-MM.png`). Nada se sube.
 
 ## Pruebas
 
