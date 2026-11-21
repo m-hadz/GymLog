@@ -1,0 +1,75 @@
+.card {
+  border-radius: var(--mantine-radius-lg);
+}
+
+.cardTap {
+  cursor: pointer;
+}
+
+.icon {
+  flex: none;
+  color: var(--mantine-color-brand-5);
+}
+
+.chevRight {
+  flex: none;
+  margin-top: 4px;
+  color: var(--mantine-color-dimmed);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 36px;
+}
+
+.chev {
+  color: var(--mantine-color-dimmed);
+  transition: transform 150ms ease;
+}
+
+.chev[data-open] {
+  transform: rotate(180deg);
+}
+
+.chart {
+  touch-action: pan-y;
+}
+
+.legendDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--mantine-color-dimmed);
+}
+
+.legendLine {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--mantine-color-brand-5);
+}
+
+.list {
+  border-radius: var(--mantine-radius-lg);
+  overflow: hidden;
+}
+
+.entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 14px;
+}
+
+.entry + .entry {
+  border-top: 1px solid var(--mantine-color-default-border);
+}
+
+.entry:active {
+  background: var(--mantine-color-default-hover);
+}

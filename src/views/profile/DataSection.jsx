@@ -49,6 +49,8 @@ async function restoreBackup(file) {
     if (data.exercises.length) upsert('exercises', data.exercises);
     const prefs = Array.isArray(data.exercise_prefs) ? data.exercise_prefs.filter((p) => p?.id) : [];
     if (prefs.length) upsert('exercise_prefs', prefs);
+    const body = Array.isArray(data.body_metrics) ? data.body_metrics.filter((b) => b?.id && b.date) : [];
+    if (body.length) upsert('body_metrics', body);
     if (data.templates.length) upsert('templates', data.templates);
     for (const part of chunks(fresh)) upsert('workouts', part);
     notify.success('Respaldo restaurado');
@@ -92,12 +94,12 @@ export function DataSection() {
           icon={IconDatabaseExport}
           color="grape"
           label="Descargar respaldo completo (JSON)"
-          description="Entrenamientos, plantillas, ejercicios propios y sus ajustes"
+          description="Entrenamientos, plantillas, ejercicios, ajustes y peso corporal"
           onClick={() => download(
             `gymlog-backup-${today()}.json`,
             JSON.stringify({
               workouts: state.workouts, templates: state.templates, exercises: state.exercises,
-              exercise_prefs: state.exercise_prefs,
+              exercise_prefs: state.exercise_prefs, body_metrics: state.body_metrics,
             }, null, 1),
             'application/json',
           )}

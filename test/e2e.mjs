@@ -327,6 +327,48 @@ try {
   await tid('muscle-detail').waitFor({ state: 'detached' });
   step('mapa del cuerpo y estímulo directo por músculo');
 
+  // 10c. Peso corporal (feature 03): dos registros, tarjeta, mismo día reemplaza, gráfico y borrar
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const today = ymd(new Date());
+  const yesterday = ymd(new Date(Date.now() - 864e5));
+  await tid('body-add').click();
+  await tid('body-weight').fill('80,4');
+  await tid('body-date').fill(yesterday);
+  await tid('body-save').click();
+  await tid('body-form').waitFor({ state: 'detached' });
+  await tid('body-add').click();
+  await expectValue(tid('body-weight'), '80,4'); // prellenado con el último
+  await tid('body-weight').fill('80,1');
+  await tid('body-save').click();
+  await tid('body-form').waitFor({ state: 'detached' });
+  await visible(tid('body-last').getByText('Último: 80,1 kg · hoy'));
+  assert.match(await tid('body-trend').innerText(), /^80,\d kg$/);
+  // otro registro el mismo día pide confirmación y reemplaza
+  await tid('body-add').click();
+  await tid('body-weight').fill('79,9');
+  await tid('body-save').click();
+  await visible(text('Ya hay un registro ese día'));
+  await tid('confirm-ok').click();
+  await tid('body-form').waitFor({ state: 'detached' });
+  await page.waitForTimeout(500);
+  assert.equal(db().body_metrics[today].weight, 79.9);
+  assert.equal(db().body_metrics[yesterday].weight, 80.4);
+  // pantalla de peso: gráfico, lista y borrar
+  await tid('body-open').click();
+  await visible(tid('body-chart'));
+  await expectCount(tid('body-entry'), 2);
+  await shot('10c-peso');
+  await tid('body-entry').last().click();
+  await tid('body-delete').click();
+  await tid('confirm-ok').click();
+  await expectCount(tid('body-entry'), 1);
+  await page.waitForTimeout(500);
+  assert.deepEqual(Object.keys(db().body_metrics), [today]);
+  dl = page.waitForEvent('download');
+  await tid('body-csv').click();
+  assert.match(readFileSync(await (await dl).path(), 'utf8'), new RegExp(`^Fecha,Peso \\(kg\\),Tendencia \\(kg\\),Grasa \\(%\\),Notas\n${today},79\\.9,79\\.9,,`));
+  step('peso corporal: registrar, tendencia, reemplazar el mismo día, gráfico, borrar, CSV');
+
   // 11. Sin conexión: guardar y sincronizar al volver
   await ctx.route('**/api/**', (r) => r.abort());
   await tab('train');

@@ -1,6 +1,6 @@
 {
   "name": "gymlog",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "private": true,
   "type": "module",
   "description": "Registro de entrenamientos personal (estilo Strong). React + Mantine en el frontend, funciones serverless en Vercel.",

@@ -1,6 +1,6 @@
 # 03 · Peso corporal y medidas con tendencia
 
-**Esfuerzo:** S–M · **Depende de:** — · **Habilita:** 04 (peso corporal, lastre, asistido), fuerza
+**Estado:** implementada en v0.0.8 · **Esfuerzo:** S–M · **Depende de:** — · **Habilita:** 04 (peso corporal, lastre, asistido), fuerza
 relativa, nivel de fuerza, estimación de calorías
 
 ## Problema y objetivo
@@ -100,6 +100,14 @@ En Ajustes se eligen cuáles mostrar (por defecto: cintura).
 - [ ] `bodyweightAt()` tiene tests: sin registros (`null`), un registro, varios, fecha anterior al primero.
 - [ ] La estimación de grasa solo aparece si hay sexo, estatura y las medidas necesarias, y dice "estimado".
 - [ ] Se ve bien en modo claro y oscuro a 375 px.
+
+## Notas de implementación (v0.0.8)
+
+- Cálculos en `src/lib/body.js` (`trendSeries`, `trendRate`, `bodyweightAt`, `navyBodyFat`, `bodyCsv`).
+- Reemplazar un día conserva las medidas que no se ingresaron de nuevo (se reemplaza el peso y lo escrito).
+- Sexo, estatura y medidas a registrar son ajustes del dispositivo (Perfil → Ajustes → Cuerpo).
+- La grasa estimada usa la última medida de cuello, cintura (y cadera) aunque sean de días distintos.
+- Los diálogos de confirmación ahora se abren por encima de las hojas inferiores (antes quedaban detrás).
 
 ## Pruebas
 
