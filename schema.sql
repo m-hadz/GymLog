@@ -97,3 +97,21 @@ create table if not exists exercise_prefs (
 grant select, insert, update, delete on table exercise_prefs to service_role;
 revoke all on table exercise_prefs from anon, authenticated;
 alter table exercise_prefs enable row level security;
+
+-- Peso corporal y medidas (v0.0.8, feature 03). Se puede correr solo este bloque.
+-- id = fecha local 'YYYY-MM-DD': un registro por día.
+create table if not exists body_metrics (
+  id           text primary key,
+  date         date not null,
+  weight       numeric,                         -- kg
+  body_fat     numeric,                         -- %
+  measurements jsonb not null default '{}'::jsonb, -- { cintura: 82, cuello: 38, ... } en cm
+  notes        text not null default '',
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+create index if not exists body_metrics_date_idx on body_metrics (date desc);
+
+grant select, insert, update, delete on table body_metrics to service_role;
+revoke all on table body_metrics from anon, authenticated;
+alter table body_metrics enable row level security;

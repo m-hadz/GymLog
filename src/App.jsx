@@ -23,6 +23,7 @@ import { HistoryView, WorkoutDetailView, CalendarView } from './views/HistoryVie
 const ExercisesView = lazy(() => import('./views/ExercisesView.jsx').then((m) => ({ default: m.ExercisesView })));
 const ExerciseDetailView = lazy(() => import('./views/ExercisesView.jsx').then((m) => ({ default: m.ExerciseDetailView })));
 const ProfileView = lazy(() => import('./views/ProfileView.jsx').then((m) => ({ default: m.ProfileView })));
+const BodyView = lazy(() => import('./views/BodyView.jsx').then((m) => ({ default: m.BodyView })));
 // Lectura del día (incluye react-markdown): también diferida.
 const ReadingView = lazy(() => import('./views/ReadingView.jsx').then((m) => ({ default: m.ReadingView })));
 
@@ -39,6 +40,7 @@ const ROUTES = [
   [/^exercises$/, 'exercises', () => <ExercisesView />],
   [/^exercise\/(.+)$/, 'exercises', (m) => <ExerciseDetailView key={m[1]} id={decodeURIComponent(m[1])} />],
   [/^profile$/, 'profile', () => <ProfileView />],
+  [/^body$/, 'profile', () => <BodyView />],
   [/^reading$/, 'reading', (m, q) => <ReadingView key={q.get('id') || 'last'} id={q.get('id')} />],
   [/^login$/, '', () => <LoginView />, { bare: true }],
 ];
@@ -102,7 +104,8 @@ function Boot() {
 export function App() {
   return (
     <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} defaultColorScheme="dark">
-      <ModalsProvider>
+      {/* Diálogos por encima de las hojas inferiores (zIndex 300+) */}
+      <ModalsProvider modalProps={{ zIndex: 1000 }}>
         <Notifications position="top-center" zIndex={1000} limit={3} />
         <Boot />
         <SheetHost />

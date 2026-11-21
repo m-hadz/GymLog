@@ -1,4 +1,4 @@
-# GymLog — v0.0.7
+# GymLog — v0.0.8
 
 Registro de entrenamientos personal, inspirado en el flujo de Strong y escrito desde cero.
 Frontend en React + [Mantine](https://mantine.dev) (compilado con Vite, instalable como PWA),
@@ -26,7 +26,16 @@ funciones serverless en Vercel y Postgres gratuito en Supabase.
 - **Tus datos:** importar el CSV de Strong (sin duplicar si lo reimportas; convierte libras a
   kg), exportar en formato Strong, descargar y restaurar un respaldo JSON (se combina, no borra).
 
-### Nuevo en v0.0.7
+### Nuevo en v0.0.8
+- **Peso corporal y medidas** ([feature 03](docs/features/03-peso-corporal-medidas.md)): Perfil →
+  Cuerpo muestra el **peso de tendencia** (media móvil ponderada por días, no salta con el agua y la
+  comida), el último registro y el ritmo en kg/semana. Pantalla `#/body` con gráfico de registros y
+  tendencia, medidas (cintura, cuello, brazos…), grasa estimada (Marina de EE. UU., si indicas sexo y
+  estatura), lista editable y exportar CSV. Un registro por día.
+- Tabla nueva `body_metrics`: correr su bloque de `schema.sql` en Supabase.
+- Los diálogos de confirmación se abren por encima de las hojas inferiores.
+
+### v0.0.7
 - **Calentamiento sugerido** ([feature 02](docs/features/02-calentamiento.md)): una línea en el
   primer ejercicio de cada músculo ("Calentamiento: 20 × 10 · 45 × 5 · 65 × 5") con pesos que se
   pueden armar (discos, pesos que ya usaste o mínimo aumento), y "Agregar" para sumarlas como series de
@@ -186,8 +195,9 @@ api/*.js              Funciones de Vercel (una por recurso), todas delegan en li
 lib/router.js         Validación, auth por clave (header x-app-key) y CRUD genérico
 lib/store.js          Supabase vía REST (fetch, sin SDK) o archivo JSON en local
 lib/summary.js        Lectura del día: RSS de YouTube, Supadata, OpenAI y refreshSummary
-schema.sql            5 tablas: workouts, templates, exercises (series en JSONB),
-                      exercise_prefs (ajustes por ejercicio, id = exercise_id) y
+schema.sql            6 tablas: workouts, templates, exercises (series en JSONB),
+                      exercise_prefs (ajustes por ejercicio, id = exercise_id),
+                      body_metrics (peso y medidas, id = fecha) y
                       video_summaries (resúmenes de YouTube, id = video_id)
 dev-server.js         /api + Vite en desarrollo (o ./dist con --dist)
 index.html            Entrada de Vite
@@ -205,6 +215,7 @@ src/
     loads.js          Cargas posibles: mínimo aumento, pesos conocidos, tope de la máquina
     warmup.js         Series de calentamiento por porcentaje del peso de trabajo
     muscles.js        Estímulo directo por grupo muscular (mapa del cuerpo)
+    body.js           Peso de tendencia, ritmo, peso a una fecha, grasa estimada
     strong-csv.js     Importar/exportar CSV de Strong
     rest-timer.js, plates.js, format.js, router.js, api.js
   components/         Layout (navegación, descanso), encabezados, hojas, diálogos, selector de ejercicios
@@ -212,7 +223,7 @@ src/
   views/              Pantallas: Entrenar, editor, Historial, Ejercicios, Perfil, Lectura
 ```
 
-**API:** `GET /api/bootstrap` (todo), `GET|POST|DELETE /api/{workouts|templates|exercises|exercise_prefs}`
+**API:** `GET /api/bootstrap` (todo), `GET|POST|DELETE /api/{workouts|templates|exercises|exercise_prefs|body_metrics}`
 (`POST` acepta un objeto o una lista y hace upsert por `id`; `DELETE ?id=`), `GET /api/health`,
 `GET /api/summary` (último resumen; `?id=` uno concreto; `?list=1` los últimos 20 sin el texto) y
 `GET|POST /api/summary-refresh` (cron con `Authorization: Bearer $CRON_SECRET`, o `x-app-key`; `?force=1`).
@@ -221,7 +232,7 @@ Las estadísticas se calculan en el cliente: con miles de entrenamientos sigue s
 y el backend se mantiene mínimo.
 
 ## Pendiente (ideas)
-- Peso corporal y ejercicios con lastre o asistidos (carga real).
+- Ejercicios con lastre o asistidos (carga real, usa el peso corporal).
 - Rachas y regiones dentro de cada músculo (ver `docs/features/`).
 - Ejercicios por tiempo con cronómetro; superseries.
 - Nota fija por ejercicio (asiento, agarre) y unir ejercicios duplicados.

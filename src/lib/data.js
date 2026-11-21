@@ -3,7 +3,8 @@
 // se encola en un "outbox" que se sincroniza con el backend cuando hay conexión.
 //
 // Hay tres "canales" a los que React se suscribe por separado (ver hooks.js):
-//   data      entrenamientos, plantillas, ejercicios propios, preferencias por ejercicio
+//   data      entrenamientos, plantillas, ejercicios propios, preferencias por ejercicio,
+//             peso corporal y medidas
 //             y estado de sincronización
 //   active    entrenamiento en curso (cambia con cada tecla, solo lo escucha el editor)
 //   settings  ajustes del dispositivo
@@ -11,7 +12,8 @@ import { notifications } from '@mantine/notifications';
 import { api } from './api.js';
 
 export const state = {
-  workouts: [], templates: [], exercises: [], exercise_prefs: [], loaded: false, syncError: null, syncing: false,
+  workouts: [], templates: [], exercises: [], exercise_prefs: [], body_metrics: [],
+  loaded: false, syncError: null, syncing: false,
 };
 
 function channel() {
@@ -45,6 +47,7 @@ const SORTERS = {
   templates: (a, b) => (a.position ?? 0) - (b.position ?? 0) || a.name.localeCompare(b.name),
   exercises: (a, b) => a.name.localeCompare(b.name),
   exercise_prefs: (a, b) => (a.id < b.id ? -1 : 1),
+  body_metrics: (a, b) => (a.date < b.date ? 1 : -1), // más reciente primero
 };
 
 // Siempre crea una lista nueva: así React (useMemo) detecta el cambio por identidad.
@@ -66,6 +69,7 @@ function applyOp(op) {
 const persistCache = () =>
   writeJSON('cache', {
     workouts: state.workouts, templates: state.templates, exercises: state.exercises, exercise_prefs: state.exercise_prefs,
+    body_metrics: state.body_metrics,
   });
 
 export function loadCache() {
@@ -82,6 +86,7 @@ export async function refresh() {
   state.templates = data.templates;
   state.exercises = data.exercises;
   state.exercise_prefs = data.exercise_prefs || [];
+  state.body_metrics = data.body_metrics || [];
   outbox.forEach(applyOp); // los cambios aún no sincronizados siguen ganando
   state.loaded = true;
   persistCache();
@@ -174,6 +179,8 @@ const DEFAULT_SETTINGS = {
   suggest: true, // feature 01: mostrar el objetivo para superar la vez anterior
   // feature 02: calentamiento sugerido (línea), solo en el primer ejercicio de cada músculo
   warmupShow: true, warmupFirstOnly: true, warmupRest: 60, warmupScheme: null, // null = DEFAULT_SCHEME
+  // feature 03: sexo ('m' | 'f' | null) y estatura (cm) para la grasa estimada; medidas que se muestran
+  sex: null, height: null, bodyMeasures: ['cintura'],
   muscleTarget: 8, // series directas por semana para que un músculo esté "Bien" (mapa del cuerpo)
 };
 let settingsCache;

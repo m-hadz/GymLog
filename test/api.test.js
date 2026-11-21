@@ -114,3 +114,27 @@ test('preferencias por ejercicio: CRUD, bootstrap y validación', async () => {
   r = await call('POST', 'exercise_prefs', { id: 'x', rep_max: '12' });
   assert.equal(r.status, 400);
 });
+
+test('peso corporal: un registro por día, medidas y validación', async () => {
+  let r = await call('POST', 'body_metrics', { id: '2026-11-20', date: '2026-11-20', weight: 80.4, measurements: { cintura: 82 } });
+  assert.equal(r.status, 200);
+  const saved = await r.json();
+  assert.equal(saved.notes, '');
+  assert.equal(saved.body_fat, null);
+  await call('POST', 'body_metrics', { id: '2026-11-21', date: '2026-11-21', weight: 80.1 });
+  await call('POST', 'body_metrics', { id: '2026-11-20', date: '2026-11-20', weight: 80.9 }); // reemplaza
+  r = await call('GET', 'bootstrap');
+  const rows = (await r.json()).body_metrics;
+  assert.deepEqual(rows.map((x) => [x.id, x.weight]), [['2026-11-21', 80.1], ['2026-11-20', 80.9]]);
+  assert.deepEqual(rows[0].measurements, {});
+  for (const bad of [
+    { id: '2026-11-22', date: '2026-11-23', weight: 80 },
+    { id: 'hoy', date: 'hoy', weight: 80 },
+    { id: '2026-11-22', date: '2026-11-22', weight: -1 },
+    { id: '2026-11-22', date: '2026-11-22', measurements: { cintura: 'x' } },
+    { id: '2026-11-22', date: '2026-11-22', measurements: [1] },
+  ]) {
+    r = await call('POST', 'body_metrics', bad);
+    assert.equal(r.status, 400, JSON.stringify(bad));
+  }
+});

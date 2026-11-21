@@ -9,6 +9,7 @@ import { useData } from '../lib/hooks.js';
 import { DataSection } from './profile/DataSection.jsx';
 import { ProfileHero } from './profile/ProfileHero.jsx';
 import { ProgressSection } from './profile/ProgressSection.jsx';
+import { BodyCard } from './body/BodyCard.jsx';
 import { SettingsSection } from './profile/SettingsSection.jsx';
 import classes from './profile/Profile.module.css';
 
@@ -44,6 +45,9 @@ export function ProfileView() {
         <ProfileHero workouts={state.workouts} />
         <SyncStatus syncError={state.syncError} />
 
+        <SectionTitle>Cuerpo</SectionTitle>
+        <BodyCard />
+
         <SectionTitle>Progreso</SectionTitle>
         <ProgressSection workouts={state.workouts} />
 
@@ -53,7 +57,7 @@ export function ProfileView() {
         <SectionTitle>Ajustes</SectionTitle>
         <SettingsSection />
 
-        <Text size="xs" c="dimmed" className={classes.footer}>GymLog v0.0.7</Text>
+        <Text size="xs" c="dimmed" className={classes.footer}>GymLog v0.0.8</Text>
       </Page>
     </>
   );
