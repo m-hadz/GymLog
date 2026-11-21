@@ -6,13 +6,16 @@ import {
   Badge, Box, Button, Card, Group, Image, SimpleGrid, Stack, Table, Tabs, Text, ThemeIcon, UnstyledButton,
 } from '@mantine/core';
 import {
-  IconBarbell, IconCalendarEvent, IconChevronRight, IconEdit, IconFlame, IconRepeat, IconStack2, IconTrash, IconTrophy,
-  IconWeight,
+  IconBarbell, IconCalendarEvent, IconChevronRight, IconClock, IconEdit, IconFlame, IconPin, IconRepeat, IconScale, IconStack2,
+  IconTrash, IconTrophy, IconWeight,
 } from '@tabler/icons-react';
-import { useCatalog, useData } from '../../lib/hooks.js';
+import { useAnalysis, useCatalog, useData } from '../../lib/hooks.js';
 import { getExercise } from '../../lib/catalog.js';
-import { remove } from '../../lib/data.js';
-import { computePRs, e1rm, exerciseRecords, exerciseSessions } from '../../lib/stats.js';
+import { prefsOf, remove } from '../../lib/data.js';
+import { BODYWEIGHT_KINDS, KIND_LABEL, fmtSecs, resolveKind } from '../../lib/kinds.js';
+import { FixedNoteBox, openFixedNote } from './FixedNote.jsx';
+import { openBodyForm } from '../body/BodyForm.jsx';
+import { computePRs, e1rm, exerciseRecords, exerciseSessions, recordLoad } from '../../lib/stats.js';
 import { fmtDate, fmtNum, fmtSet, fmtTime } from '../../lib/format.js';
 import { goBack, navigate } from '../../lib/router.js';
 import { ChartCard, DeltaText, RangeControl, TrendChart, dateLong, deltaOf, fnum, kg, kgAxis } from '../../charts/charts.jsx';
@@ -40,19 +43,34 @@ const setLabel = (s, n) => (!s.type || s.type === 'N' ? String(n) : s.type);
  * @param {string|number} [p.stickyTop]  posición del selector de pestañas fijo (página: bajo el encabezado)
  */
 export function ExerciseDetail({ id, stickyTop = 0 }) {
-  const { workouts } = useData();
+  const { exercise_prefs: allPrefs, body_metrics: bodyMetrics } = useData();
+  const workouts = useAnalysis(); // con la carga efectiva en peso corporal, lastre y asistidos
   useCatalog();
   const ex = getExercise(id);
   const sessions = useMemo(() => exerciseSessions(workouts, id), [workouts, id]);
   const [tab, setTab] = useState(lastTab);
   const name = ex?.name || sessions.at(-1)?.workout.exercises.find((e) => e.exercise_id === id)?.name || 'Ejercicio';
-  const weighted = sessions.some((s) => s.maxWeight > 0);
+  const prefs = useMemo(() => allPrefs.find((p) => p.id === id) || null, [allPrefs, id]);
+  const kind = resolveKind(prefs, ex || { name });
+  const weighted = kind !== 'tiempo' && sessions.some((s) => s.maxWeight > 0);
+  const bwKind = BODYWEIGHT_KINDS.has(kind);
+  const k = { kind, weighted, bwKind, withBw: bwKind && sessions.some((s) => s.working.some((x) => x.bw != null)) };
 
   const change = (t) => { lastTab = t; setTab(t); };
 
   return (
     <Box className={classes.root}>
-      <Hero ex={ex} name={name} sessions={sessions} weighted={weighted} />
+      <Hero ex={ex} name={name} sessions={sessions} weighted={weighted} kind={kind} />
+      {prefs?.note ? <FixedNoteBox note={prefs.note} className={classes.fixedNote} onEdit={() => openFixedNote({ id, name })} /> : null}
+      {bwKind && !bodyMetrics.length ? (
+        <Card withBorder padding="sm" className={classes.bwHint} data-testid="bw-hint">
+          <Group gap="sm" wrap="nowrap">
+            <IconScale size={18} style={{ flex: 'none' }} />
+            <Text size="sm" style={{ flex: 1 }}>Registra tu peso para calcular volumen y 1RM ({KIND_LABEL[kind].toLowerCase()}).</Text>
+            <Button size="compact-sm" variant="light" onClick={() => openBodyForm()}>Registrar</Button>
+          </Group>
+        </Card>
+      ) : null}
       <Tabs value={tab} onChange={change} variant="unstyled" keepMounted={false} classNames={{ list: classes.tabList, tab: classes.tab }}>
         <Box className={classes.tabs} style={{ top: stickyTop }}>
           <Tabs.List grow data-testid="exercise-tabs">
@@ -61,10 +79,10 @@ export function ExerciseDetail({ id, stickyTop = 0 }) {
         </Box>
         {TABS.map(([value]) => (
           <Tabs.Panel key={value} value={value} pt="sm" className="app-enter">
-            {value === 'about' && <About ex={ex} />}
-            {value === 'history' && <History id={id} sessions={sessions} workouts={workouts} />}
-            {value === 'charts' && <Charts sessions={sessions} weighted={weighted} />}
-            {value === 'records' && <Records sessions={sessions} weighted={weighted} />}
+            {value === 'about' && <About ex={ex} id={id} name={name} note={prefs?.note} />}
+            {value === 'history' && <History id={id} sessions={sessions} workouts={workouts} kind={kind} />}
+            {value === 'charts' && <Charts sessions={sessions} k={k} />}
+            {value === 'records' && <Records sessions={sessions} k={k} />}
           </Tabs.Panel>
         ))}
       </Tabs>
@@ -74,8 +92,9 @@ export function ExerciseDetail({ id, stickyTop = 0 }) {
 
 // ---------- Cabecera ----------
 
-function Hero({ ex, name, sessions, weighted }) {
+function Hero({ ex, name, sessions, weighted, kind }) {
   const last = sessions.at(-1);
+  const bestTime = sessions.reduce((a, s) => Math.max(a, s.bestSeconds), 0);
   const best = sessions.reduce((a, s) => Math.max(a, s.bestE1rm), 0);
   const maxReps = sessions.reduce((a, s) => Math.max(a, ...s.working.map((x) => x.reps || 0)), 0);
   return (
@@ -87,6 +106,7 @@ function Hero({ ex, name, sessions, weighted }) {
           <Group gap={6} mt={6}>
             {ex ? <Badge variant="light" color="brand">{ex.bodyPart}</Badge> : null}
             {ex ? <Badge variant="light" color="gray">{ex.category}</Badge> : null}
+            {kind !== 'peso_reps' ? <Badge variant="light" color="teal" data-testid="kind-badge">{KIND_LABEL[kind]}</Badge> : null}
             {ex?.level ? <Badge variant="light" color="gray">{LEVEL[ex.level] || ex.level}</Badge> : null}
             {ex?.custom ? <Badge variant="light" color="grape">propio</Badge> : null}
           </Group>
@@ -95,7 +115,9 @@ function Hero({ ex, name, sessions, weighted }) {
       {sessions.length ? (
         <StatGrid cols={3}>
           <StatTile label="Sesiones" value={sessions.length} icon={IconStack2} />
-          {weighted
+          {kind === 'tiempo'
+            ? <StatTile label="Mejor tiempo" value={bestTime ? fmtSecs(bestTime) : '—'} icon={IconClock} color="yellow" />
+            : weighted
             ? <StatTile label="1RM est." value={best ? `${fnum(best, 0)} kg` : '—'} icon={IconTrophy} color="yellow" />
             : <StatTile label="Máx. reps" value={maxReps || '—'} icon={IconRepeat} color="yellow" />}
           <StatTile
@@ -113,7 +135,12 @@ function Hero({ ex, name, sessions, weighted }) {
 
 // ---------- Descripción ----------
 
-function About({ ex }) {
+function About({ ex, id, name, note }) {
+  const noteRow = (
+    <Button variant="default" leftSection={<IconPin size={16} />} onClick={() => openFixedNote({ id, name })} data-testid="fixed-note-edit">
+      {note ? 'Editar nota fija' : 'Agregar nota fija'}
+    </Button>
+  );
   if (!ex) {
     return <EmptyState icon={IconBarbell} title="Sin descripción" description="Este ejercicio ya no existe en el catálogo (se conserva tu historial)." />;
   }
@@ -170,6 +197,8 @@ function About({ ex }) {
         <Text size="sm" c="dimmed">Sin instrucciones. {ex.custom ? 'Puedes vincularlo a un ejercicio del catálogo para ver imagen e instrucciones.' : ''}</Text>
       ) : null}
 
+      {noteRow}
+
       <Box>
         <Text size="xs" fw={700} c="dimmed" tt="uppercase" className={classes.label} mb={8}>Ajustes del ejercicio</Text>
         <Card withBorder radius="md" padding="md">
@@ -189,7 +218,7 @@ function About({ ex }) {
 
 // ---------- Historial ----------
 
-function History({ id, sessions, workouts }) {
+function History({ id, sessions, workouts, kind }) {
   const prs = useMemo(() => computePRs(workouts), [workouts]);
   if (!sessions.length) {
     return <EmptyState icon={IconCalendarEvent} title="Todavía no has hecho este ejercicio" description="Cuando lo registres en un entrenamiento, aparecerá aquí." />;
@@ -223,7 +252,7 @@ function History({ id, sessions, workouts }) {
               </Group>
               <Group justify="space-between" className={classes.setHead}>
                 <Text size="xs" c="dimmed" fw={600}>Serie</Text>
-                <Text size="xs" c="dimmed" fw={600}>1RM est.</Text>
+                <Text size="xs" c="dimmed" fw={600}>{kind === 'tiempo' ? '' : '1RM est.'}</Text>
               </Group>
               {rows.map(({ s, label, badges, key }) => (
                 <Group key={key} justify="space-between" wrap="nowrap" className={classes.setRow}>
@@ -248,7 +277,11 @@ function History({ id, sessions, workouts }) {
 
 // ---------- Gráficas ----------
 
-function Charts({ sessions, weighted }) {
+const LOAD_LABEL = { peso_reps: 'Peso máximo', lastre: 'Lastre máximo', asistido: 'Carga máxima (PC − asistencia)' };
+const secsAxis = (v) => fmtSecs(v);
+
+function Charts({ sessions, k }) {
+  const { weighted, kind } = k;
   const [range, setRange] = useState(lastRange);
   const onRange = (v) => { lastRange = v; setRange(v); };
   const r = RANGES.find((x) => x[0] === range) || RANGES.at(-1);
@@ -266,21 +299,35 @@ function Charts({ sessions, weighted }) {
   let cards;
   if (!sess.length) {
     cards = [<Text key="none" c="dimmed" ta="center" py="xl" size="sm">No hay sesiones en este periodo.</Text>];
+  } else if (kind === 'tiempo') {
+    const ts = sess.filter((s) => s.bestSeconds > 0);
+    cards = [
+      <Chart key="best" title="Mejor tiempo" format={fmtSecs} axisFormat={secsAxis}
+        points={ts.map((s) => pt(s, s.bestSeconds, plural(s.working.length, 'serie', 'series')))} />,
+      <Chart key="total" title="Tiempo total por sesión" format={fmtSecs} axisFormat={secsAxis} color="teal.5"
+        points={ts.map((s) => pt(s, s.totalSeconds, plural(s.working.length, 'serie', 'series')))} />,
+    ];
   } else if (!weighted) {
     const pts = sess.filter((s) => s.working.length)
       .map((s) => pt(s, Math.max(...s.working.map((x) => x.reps || 0)), plural(s.working.length, 'serie', 'series')));
     cards = [<Chart key="reps" title="Máx. repeticiones en una serie" points={pts} format={reps} axisFormat={(v) => fnum(v, 0)} />];
   } else {
     const ws = sess.filter((s) => s.best);
-    const repsAtMax = (s) => Math.max(...s.working.filter((x) => (x.weight || 0) === s.maxWeight).map((x) => x.reps || 0));
+    const topLoad = (s) => s.working.reduce((a, x) => (recordLoad(x) > recordLoad(a) ? x : a), s.working[0]);
     cards = [
       <Chart key="1rm" title="Mejor serie (1RM estimado)" format={kg} axisFormat={kgAxis}
         points={ws.map((s) => pt(s, Math.round(s.bestE1rm * 10) / 10, `Mejor serie: ${fmtSet(s.best)}`))} />,
-      <Chart key="max" title="Peso máximo" format={kg} axisFormat={kgAxis}
-        points={ws.map((s) => pt(s, s.maxWeight, `${fmtNum(s.maxWeight)} kg × ${repsAtMax(s)}`))} />,
+      kind === 'peso_corporal'
+        ? <Chart key="reps" title="Máx. repeticiones en una serie" format={reps} axisFormat={(v) => fnum(v, 0)}
+          points={ws.map((s) => pt(s, Math.max(...s.working.map((x) => x.reps || 0)), plural(s.working.length, 'serie', 'series')))} />
+        : <Chart key="max" title={LOAD_LABEL[kind]} format={kg} axisFormat={kgAxis}
+          points={ws.map((s) => { const t = topLoad(s); return pt(s, recordLoad(t), fmtSet(t)); })} />,
       <Chart key="vol" title="Volumen por sesión" format={kg} axisFormat={kgAxis} color="teal.5"
         points={ws.map((s) => pt(s, s.volume, plural(s.working.length, 'serie efectiva', 'series efectivas')))} />,
     ];
+    if (k.withBw) {
+      cards.push(<Text key="bw" size="xs" c="dimmed">El 1RM estimado y el volumen incluyen tu peso corporal (tendencia de cada fecha).</Text>);
+    }
   }
   return <Stack gap="sm">{control}{cards}</Stack>;
 }
@@ -305,7 +352,8 @@ function Chart({ title, points, format, axisFormat, color }) {
 
 // ---------- Registros ----------
 
-function Records({ sessions, weighted }) {
+function Records({ sessions, k }) {
+  const { weighted, kind } = k;
   const r = useMemo(() => exerciseRecords(sessions), [sessions]);
   if (!sessions.length) {
     return <EmptyState icon={IconTrophy} title="Sin récords todavía" description="Tus mejores marcas aparecerán aquí." />;
@@ -313,14 +361,23 @@ function Records({ sessions, weighted }) {
   const when = (rec) => (rec?.workout ? shortDate(rec.workout.started_at) : '');
   const items = [
     weighted && { icon: IconTrophy, color: 'yellow', label: '1RM estimado', value: r.e1rm && `${fmtNum(r.e1rm.value, 0)} kg`, ctx: r.e1rm && `${fmtSet(r.e1rm.set)} · ${when(r.e1rm)}` },
-    weighted && { icon: IconWeight, color: 'brand', label: 'Peso máximo', value: r.weight && `${fmtNum(r.weight.value)} kg (×${r.weight.set.reps})`, ctx: when(r.weight) },
+    weighted && kind !== 'peso_corporal' && { icon: IconWeight, color: 'brand', label: LOAD_LABEL[kind] || 'Peso máximo', value: r.weight && `${fmtNum(r.weight.value)} kg (×${r.weight.set.reps})`, ctx: when(r.weight) },
     weighted && { icon: IconBarbell, color: 'teal', label: 'Máx. volumen en una serie', value: r.setVolume && `${fmtNum(r.setVolume.value)} kg`, ctx: r.setVolume && `${fmtSet(r.setVolume.set)} · ${when(r.setVolume)}` },
     weighted && { icon: IconStack2, color: 'teal', label: 'Máx. volumen en una sesión', value: r.sessionVolume && `${fmtNum(r.sessionVolume.value)} kg`, ctx: when(r.sessionVolume) },
-    { icon: IconRepeat, color: 'grape', label: 'Máx. repeticiones', value: r.reps && `${r.reps.value}`, ctx: r.reps && `${fmtSet(r.reps.set)} · ${when(r.reps)}` },
+    kind === 'tiempo' && { icon: IconClock, color: 'yellow', label: 'Mejor tiempo', value: r.seconds && fmtSecs(r.seconds.value), ctx: r.seconds && `${fmtSet(r.seconds.set)} · ${when(r.seconds)}` },
+    kind !== 'tiempo' && { icon: IconRepeat, color: 'grape', label: 'Máx. repeticiones', value: r.reps && `${r.reps.value}`, ctx: r.reps && `${fmtSet(r.reps.set)} · ${when(r.reps)}` },
     { icon: IconCalendarEvent, color: 'gray', label: 'Sesiones', value: String(sessions.length), ctx: `Desde ${shortDate(sessions[0].workout.started_at)}` },
   ].filter(Boolean);
 
-  const rows = weighted ? r.repTable : [];
+  const rows = weighted && kind !== 'peso_corporal' ? r.repTable : [];
+  // Con lastre o asistido, lo previsto se muestra como lo anotarías (con tu peso corporal más reciente)
+  const bw = k.bwKind ? sessions.at(-1)?.working.find((x) => x.bw != null)?.bw ?? null : null;
+  const predicted = (v) => {
+    if (bw == null) return `${fmtNum(v, 0)} kg`;
+    const extra = Math.round((kind === 'asistido' ? bw - v : v - bw) * 2) / 2;
+    if (kind === 'asistido') return extra > 0 ? `PC − ${fmtNum(extra)} kg` : 'PC';
+    return extra >= 0 ? `PC + ${fmtNum(extra)} kg` : `PC − ${fmtNum(-extra)} kg`;
+  };
   return (
     <Stack gap="md">
       <Card withBorder className={classes.card} padding={0} data-testid="records">
@@ -353,7 +410,7 @@ function Records({ sessions, weighted }) {
                   <Table.Tr key={row.reps}>
                     <Table.Td fw={700}>{row.reps}</Table.Td>
                     <Table.Td c={row.best ? undefined : 'dimmed'}>{row.best ? fmtSet(row.best) : '—'}</Table.Td>
-                    <Table.Td ta="right" c="dimmed">{row.predicted ? `${fmtNum(row.predicted, 0)} kg` : '—'}</Table.Td>
+                    <Table.Td ta="right" c="dimmed">{row.predicted ? predicted(row.predicted) : '—'}</Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>

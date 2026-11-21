@@ -1,4 +1,5 @@
 // Formatos y utilidades sin DOM (números, fechas, ids, descargas).
+import { fmtSecs } from './kinds.js';
 
 export const uid = (prefix = '') => prefix + crypto.randomUUID().replace(/-/g, '').slice(0, 20);
 
@@ -11,8 +12,14 @@ export function num(v) {
 export const fmtNum = (n, d = 1) =>
   n == null ? '' : Number(n).toLocaleString('es-CL', { maximumFractionDigits: d });
 
+// Series ya analizadas (kinds.js) traen `kind` y `raw`: "PC + 10 kg × 8", "PC − 20 kg × 8".
+// Series por tiempo (sin reps): "1:00" o "20 kg · 1:00".
 export const fmtSet = (s) => {
   if (!s) return '—';
+  if (!s.reps && s.seconds > 0) return `${s.weight ? `${fmtNum(s.weight)} kg · ` : ''}${fmtSecs(s.seconds)}`;
+  if (s.kind === 'lastre' || (s.kind === 'peso_corporal' && s.raw)) return s.raw ? `PC + ${fmtNum(s.raw)} kg × ${s.reps ?? 0}` : `PC × ${s.reps ?? 0}`;
+  if (s.kind === 'asistido') return s.raw ? `PC − ${fmtNum(s.raw)} kg × ${s.reps ?? 0}` : `PC × ${s.reps ?? 0}`;
+  if (s.kind === 'peso_corporal') return `${s.reps ?? 0} reps`;
   if (s.weight) return `${fmtNum(s.weight)} kg × ${s.reps ?? 0}`;
   return `${s.reps ?? 0} reps`;
 };

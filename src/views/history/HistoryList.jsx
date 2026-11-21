@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Badge, Box, Button, Card, CloseButton, Group, Stack, Text } from '@mantine/core';
 import { useIntersection } from '@mantine/hooks';
 import { IconCalendarMonth, IconClock, IconHistory, IconTrophy, IconWeight } from '@tabler/icons-react';
-import { useCatalog, useData } from '../../lib/hooks.js';
+import { useAnalysis, useCatalog } from '../../lib/hooks.js';
 import { navigate } from '../../lib/router.js';
 import { exerciseName } from '../../lib/catalog.js';
 import { computePRs, prCount, workoutVolume, workoutDuration, bestSet } from '../../lib/stats.js';
@@ -72,7 +72,7 @@ export function WorkoutCard({ w, marks }) {
 }
 
 export function HistoryList({ query }) {
-  const { workouts } = useData();
+  const workouts = useAnalysis(); // carga efectiva de peso corporal (volumen y récords)
   useCatalog();
   const day = query.get('day');
   const prs = useMemo(() => computePRs(workouts), [workouts]);

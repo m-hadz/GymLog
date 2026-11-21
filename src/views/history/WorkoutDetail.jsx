@@ -6,13 +6,14 @@ import {
   IconCopy, IconDots, IconNote, IconPencil, IconPlayerPlay, IconTemplate, IconTrash, IconTrophy, IconConfetti,
   IconClock, IconStack2, IconWeight, IconMoodSad,
 } from '@tabler/icons-react';
-import { useCatalog, useData } from '../../lib/hooks.js';
+import { useAnalysis, useCatalog } from '../../lib/hooks.js';
 import { navigate } from '../../lib/router.js';
 import { remove, upsert, workoutById } from '../../lib/data.js';
 import { exerciseName } from '../../lib/catalog.js';
 import { bestSet, computePRs, e1rm, prCount, workoutVolume, workoutDuration, isWorking, setVolume } from '../../lib/stats.js';
 import { previousOf, startWorkout, templateFromWorkout } from '../../lib/workout.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, fmtTime, fmtVolume } from '../../lib/format.js';
+import { fmtSecs } from '../../lib/kinds.js';
 import { Page, PageHeader } from '../../components/PageHeader.jsx';
 import { EmptyState, ExerciseThumb, SectionTitle, StatGrid, StatTile, DeltaBadge } from '../../components/ui.jsx';
 import { confirmDialog, notify, promptDialog } from '../../components/dialogs.jsx';
@@ -24,7 +25,7 @@ const TYPE_TITLE = { W: 'Calentamiento', D: 'Drop set', F: 'Al fallo' };
 
 const exVolume = (w, exId) => (w.exercises || []).filter((e) => e.exercise_id === exId)
   .flatMap((e) => e.sets).filter(isWorking)
-  .reduce((a, s) => a + (s.weight ? setVolume(s) : s.reps || 0), 0);
+  .reduce((a, s) => a + (s.weight ? setVolume(s) : s.reps || s.seconds || 0), 0);
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const pct = (a, b) => (a ? Math.round((b / a - 1) * 100) : null);
@@ -88,10 +89,13 @@ function RecordsCard({ w, marks }) {
 function exerciseStats(w, exId) {
   const working = (w.exercises || []).filter((e) => e.exercise_id === exId).flatMap((e) => e.sets).filter(isWorking);
   const best = bestSet(working);
+  const mode = !best ? null : best.weight && best.reps ? 'kg' : best.reps ? 'reps' : 'time';
   return {
     best,
-    weighted: !!best?.weight,
-    strength: best ? (best.weight ? e1rm(best.weight, best.reps) : Math.max(...working.map((s) => s.reps || 0))) : 0,
+    weighted: mode === 'kg',
+    mode,
+    strength: !best ? 0 : mode === 'kg' ? e1rm(best.weight, best.reps)
+      : Math.max(...working.map((s) => (mode === 'reps' ? s.reps || 0 : s.seconds || 0))),
     volume: exVolume(w, exId),
   };
 }
@@ -104,12 +108,12 @@ function CompareCard({ w, prev }) {
     const a = exerciseStats(prev, exId);
     const b = exerciseStats(w, exId);
     if (!b.best) return null;
-    const comparable = a.best && a.weighted === b.weighted;
+    const comparable = a.best && a.mode === b.mode;
     return { exId, a: comparable ? a : null, b, name: exerciseName(exId, w.exercises.find((e) => e.exercise_id === exId).name) };
   }).filter(Boolean), [w, prev]);
   if (!rows.length) return null;
-  const unit = (r, v) => (r.b.weighted ? `${fmtNum(v)} kg` : `${fmtNum(v, 0)} reps`);
-  const vol = (r, v) => (r.b.weighted ? fmtVolume(v) : `${fmtNum(v, 0)} reps`);
+  const unit = (r, v) => (r.b.mode === 'kg' ? `${fmtNum(v)} kg` : r.b.mode === 'time' ? fmtSecs(v) : `${fmtNum(v, 0)} reps`);
+  const vol = (r, v) => (r.b.mode === 'kg' ? fmtVolume(v) : r.b.mode === 'time' ? fmtSecs(v) : `${fmtNum(v, 0)} reps`);
   return (
     <Card withBorder className={classes.surfaceCard} padding="md">
       <Group justify="space-between" mb={2} wrap="nowrap">
@@ -140,7 +144,7 @@ function CompareCard({ w, prev }) {
               </Box>
               <Text size="xs" c="dimmed" mt={6} className="tnum">
                 Mejor serie {fmtSet(r.b.best)}{r.a ? ` (antes ${fmtSet(r.a.best)})` : ''}
-                {' · '}Volumen {vol(r, r.b.volume)}
+                {' · '}{r.b.mode === 'time' ? 'Tiempo total' : 'Volumen'} {vol(r, r.b.volume)}
                 {r.a ? ` (antes ${vol(r, r.a.volume)}${dv ? `, ${dv > 0 ? '+' : ''}${dv} %` : ''})` : ''}
               </Text>
             </Box>
@@ -195,9 +199,10 @@ function ExerciseBlock({ e, ei, marks }) {
 }
 
 export function WorkoutDetail({ id, query }) {
-  const { workouts } = useData();
+  const workouts = useAnalysis(); // carga efectiva de peso corporal/lastre/asistidos, solo para mostrar
   useCatalog();
-  const w = workoutById(id);
+  const raw = workoutById(id); // para editar, repetir o crear plantilla: lo guardado
+  const w = (raw && workouts.find((x) => x.id === id)) || raw;
   const prsAll = useMemo(() => computePRs(workouts), [workouts]);
 
   if (!w) {
@@ -213,7 +218,8 @@ export function WorkoutDetail({ id, query }) {
 
   const marks = prsAll.get(w.id);
   const prs = prCount(marks);
-  const prev = previousOf(w);
+  const prevRaw = previousOf(w);
+  const prev = prevRaw && (workouts.find((x) => x.id === prevRaw.id) || prevRaw);
   const vol = workoutVolume(w);
   const sets = w.exercises.reduce((a, e) => a + e.sets.filter(isWorking).length, 0);
   const prevVol = prev ? workoutVolume(prev) : 0;
@@ -221,11 +227,11 @@ export function WorkoutDetail({ id, query }) {
   const done = query?.get('done');
 
   const edit = () => navigate(`/workout/${w.id}/edit`);
-  const repeat = () => startWorkout({ from: w });
+  const repeat = () => startWorkout({ from: raw });
   const saveTemplate = async () => {
     const name = await promptDialog({ title: 'Guardar como plantilla', label: 'Nombre de la plantilla', initial: w.name });
     if (!name) return;
-    upsert('templates', templateFromWorkout(w, name));
+    upsert('templates', templateFromWorkout(raw, name));
     notify.success(`Plantilla "${name}" creada`);
     navigate('/train');
   };

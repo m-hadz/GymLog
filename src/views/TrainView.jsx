@@ -10,7 +10,7 @@ import {
 import { Page, PageHeader } from '../components/PageHeader.jsx';
 import { EmptyState, ExerciseThumb, SectionTitle, StatGrid, StatTile } from '../components/ui.jsx';
 import { confirmDialog, notify } from '../components/dialogs.jsx';
-import { useActiveWorkout, useCatalog, useData, useNow } from '../lib/hooks.js';
+import { useActiveWorkout, useAnalysis, useCatalog, useData, useNow } from '../lib/hooks.js';
 import { remove, state, upsert } from '../lib/data.js';
 import { exerciseName, getExercise } from '../lib/catalog.js';
 import { workoutVolume } from '../lib/stats.js';
@@ -165,7 +165,8 @@ function TemplateCard({ t, lastDone }) {
 export function TrainView() {
   const { workouts, templates } = useData();
   useCatalog();
-  const stats = useMemo(() => weekStats(workouts), [workouts]);
+  const analysis = useAnalysis();
+  const stats = useMemo(() => weekStats(analysis), [analysis]);
   const lastDone = useMemo(() => {
     const m = new Map();
     for (const w of workouts) if (w.template_id && !m.has(w.template_id)) m.set(w.template_id, w.started_at);

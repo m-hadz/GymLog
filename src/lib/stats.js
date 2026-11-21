@@ -10,8 +10,14 @@ export function e1rm(weight, reps) {
 // Peso estimado para N reps a partir de un 1RM (inverso de Brzycki)
 export const weightForReps = (oneRm, reps) => (reps === 1 ? oneRm : (oneRm * (37 - reps)) / 36);
 
-export const isWorking = (s) => s && s.done !== false && s.type !== 'W' && (s.reps || 0) > 0;
-export const setVolume = (s) => (s.weight || 0) * (s.reps || 0);
+// Serie efectiva: hecha, no de calentamiento y con reps (o con tiempo, en ejercicios por tiempo)
+export const isWorking = (s) => s && s.done !== false && s.type !== 'W' && ((s.reps || 0) > 0 || (s.seconds || 0) > 0);
+// `vw`: peso que cuenta para el volumen en ejercicios de peso corporal (ver kinds.js)
+export const setVolume = (s) => (s.vw ?? s.weight ?? 0) * (s.reps || 0);
+// Peso para los récords de "peso máximo": el lastre agregado, nada en peso corporal (subir de
+// peso corporal no es un récord), la carga efectiva en asistidos y el peso en el resto.
+export const recordLoad = (s) => (!s.reps || s.kind === 'peso_corporal' ? 0 : s.kind === 'lastre' ? s.raw || 0 : s.weight || 0);
+const timeOnly = (s) => (!s.reps && s.seconds > 0 ? s.seconds : 0);
 
 const asc = (a, b) => (a.started_at < b.started_at ? -1 : 1);
 
@@ -28,7 +34,9 @@ function better(a, b) {
   if (!b) return true;
   const ea = e1rm(a.weight, a.reps);
   const eb = e1rm(b.weight, b.reps);
-  return ea > eb || (ea === eb && (a.reps || 0) > (b.reps || 0));
+  if (ea !== eb) return ea > eb;
+  if ((a.reps || 0) !== (b.reps || 0)) return (a.reps || 0) > (b.reps || 0);
+  return (a.seconds || 0) > (b.seconds || 0);
 }
 
 export function bestSet(sets) {
@@ -56,13 +64,15 @@ export function exerciseSessions(workouts, exId) {
       maxWeight: Math.max(0, ...working.map((s) => s.weight || 0)),
       volume: working.reduce((a, s) => a + setVolume(s), 0),
       totalReps: working.reduce((a, s) => a + (s.reps || 0), 0),
+      bestSeconds: Math.max(0, ...working.map(timeOnly)),
+      totalSeconds: working.reduce((a, s) => a + timeOnly(s), 0),
     });
   }
   return out;
 }
 
 export function exerciseRecords(sessions) {
-  const rec = { e1rm: null, weight: null, setVolume: null, sessionVolume: null, reps: null };
+  const rec = { e1rm: null, weight: null, setVolume: null, sessionVolume: null, reps: null, seconds: null };
   // En empate de valor gana la serie con más reps (p. ej. 20 kg ×7 antes que 20 kg ×5).
   const bump = (key, value, set, workout) => {
     if (value > 0 && (!rec[key] || value > rec[key].value ||
@@ -76,9 +86,10 @@ export function exerciseRecords(sessions) {
     for (const s of sess.working) {
       all.push(s);
       bump('e1rm', e1rm(s.weight, s.reps), s, sess.workout);
-      bump('weight', s.weight || 0, s, sess.workout);
+      bump('weight', recordLoad(s), s, sess.workout);
       bump('setVolume', setVolume(s), s, sess.workout);
       bump('reps', s.reps || 0, s, sess.workout);
+      bump('seconds', timeOnly(s), s, sess.workout);
     }
   }
   // Mejor peso logrado con al menos N reps, y lo "previsto" según el mejor 1RM
@@ -103,9 +114,10 @@ export function computePRs(workouts) {
   const result = new Map();
   const metrics = [
     ['1RM', 'e1rm', (s) => e1rm(s.weight, s.reps)],
-    ['PESO', 'weight', (s) => s.weight || 0],
+    ['PESO', 'weight', recordLoad],
     ['VOL.', 'vol', setVolume],
-    ['REPS', 'reps', (s) => (s.weight ? 0 : s.reps || 0)], // solo ejercicios sin peso
+    ['REPS', 'reps', (s) => (s.weight && s.kind !== 'peso_corporal' ? 0 : s.reps || 0)], // sin peso o peso corporal
+    ['TIEMPO', 'secs', timeOnly], // ejercicios por tiempo
   ];
   for (const w of [...workouts].sort(asc)) {
     const marks = new Map();
@@ -117,7 +129,7 @@ export function computePRs(workouts) {
     }));
     for (const [exId, items] of perEx) {
       const prev = best.get(exId);
-      const cur = { ...(prev || { e1rm: 0, weight: 0, vol: 0, reps: 0 }) };
+      const cur = { ...(prev || { e1rm: 0, weight: 0, vol: 0, reps: 0, secs: 0 }) };
       for (const [label, k, fn] of metrics) {
         const top = items.reduce((a, b) => (fn(b.s) > fn(a.s) ? b : a));
         const v = fn(top.s);

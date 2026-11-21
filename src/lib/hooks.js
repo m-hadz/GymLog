@@ -3,12 +3,21 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { state, dataChannel, activeChannel, settingsChannel, getActive, getSettings } from './data.js';
 import { catalogChannel } from './catalog.js';
 import { restChannel, getRest } from './rest-timer.js';
+import { analysisWorkouts } from './effective.js';
 
 // Datos sincronizados. Devuelve `state` (workouts, templates, exercises, syncError…).
 // Las listas cambian de identidad en cada cambio, así sirven como dependencias de useMemo.
 export function useData() {
   useSyncExternalStore(dataChannel.subscribe, dataChannel.version);
   return state;
+}
+
+// Entrenamientos con la carga efectiva de peso corporal/lastre/asistido (solo para mostrar y analizar).
+export function useAnalysis() {
+  useData();
+  useCatalog();
+  useSettings();
+  return analysisWorkouts();
 }
 
 // Re-renderiza cuando el catálogo de ejercicios termina de cargar.

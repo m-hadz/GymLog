@@ -340,7 +340,7 @@ function WorkoutEditInner({ w }) {
     const final = structuredClone(doc);
     final.name = final.name.trim();
     final.exercises.forEach((e) => {
-      e.sets = e.sets.filter((s) => s.reps != null || s.weight != null)
+      e.sets = e.sets.filter((s) => s.reps != null || s.weight != null || s.seconds != null)
         .map(({ target, fb, ...s }) => ({ ...s, done: true, weight: s.weight ?? 0 }));
     });
     final.exercises = final.exercises.filter((e) => e.sets.length);

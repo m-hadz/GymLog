@@ -27,7 +27,7 @@ const score = (s) => (s.weight ? e1rm(s.weight, s.reps) : s.reps || 0);
 export function referenceSet(sets) {
   let best = null;
   for (const s of sets || []) {
-    if (!isWorking(s) || s.type === 'D') continue;
+    if (!isWorking(s) || s.type === 'D' || !(s.reps > 0)) continue;
     if (!best || score(s) > score(best)) best = s;
   }
   return best;

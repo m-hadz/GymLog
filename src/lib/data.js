@@ -181,6 +181,7 @@ const DEFAULT_SETTINGS = {
   warmupShow: true, warmupFirstOnly: true, warmupRest: 60, warmupScheme: null, // null = DEFAULT_SCHEME
   // feature 03: sexo ('m' | 'f' | null) y estatura (cm) para la grasa estimada; medidas que se muestran
   sex: null, height: null, bodyMeasures: ['cintura'],
+  countBodyweight: true, // contar el peso corporal en el volumen (feature 04)
   muscleTarget: 8, // series directas por semana para que un músculo esté "Bien" (mapa del cuerpo)
 };
 let settingsCache;

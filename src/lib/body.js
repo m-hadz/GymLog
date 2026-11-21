@@ -71,6 +71,29 @@ export function bodyweightAt(entries, date) {
 }
 
 /**
+ * Igual que bodyweightAt, pero precalculado para consultar muchas fechas (análisis del historial).
+ * Para fechas anteriores al primer registro usa ese primer registro si está a `backfillDays` días
+ * o menos (el peso corporal cambia lento), y si no, null.
+ * @returns {(date:string) => number|null}
+ */
+export function bodyweightLookup(entries, { backfillDays = 60 } = {}) {
+  const series = trendSeries(entries);
+  if (!series.length) return () => null;
+  const first = series[0];
+  return (date) => {
+    let lo = 0;
+    let hi = series.length - 1;
+    let found = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (series[mid].date <= date) { found = mid; lo = mid + 1; } else hi = mid - 1;
+    }
+    if (found < 0) return dayNum(first.date) - dayNum(date) <= backfillDays ? first.weight : null;
+    return found < 2 ? series[found].weight : series[found].trend;
+  };
+}
+
+/**
  * % de grasa estimado con el método de la Marina de EE. UU. (medidas en cm). null si falta algo.
  * Hombres: cuello, cintura, estatura. Mujeres: además cadera.
  */

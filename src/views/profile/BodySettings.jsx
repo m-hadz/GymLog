@@ -1,7 +1,7 @@
 // Ajustes del cuerpo (feature 03): sexo y estatura para la grasa estimada, y qué medidas registrar.
 import { useState } from 'react';
-import { Chip, Group, SegmentedControl, TextInput } from '@mantine/core';
-import { IconRuler2, IconScale } from '@tabler/icons-react';
+import { Chip, Group, SegmentedControl, Switch, TextInput } from '@mantine/core';
+import { IconRuler2, IconScale, IconWeight } from '@tabler/icons-react';
 import { notify } from '../../components/dialogs.jsx';
 import { saveSettings } from '../../lib/data.js';
 import { useSettings } from '../../lib/hooks.js';
@@ -41,6 +41,16 @@ export function BodySettings() {
               onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} data-testid="body-height"
             />
           </Group>
+        )}
+      />
+      <SettingsRow
+        icon={IconWeight} color="green" label="Contar el peso corporal en el volumen"
+        description="En dominadas, fondos, con lastre y asistidos. Apagado, el volumen es solo lo cargado."
+        right={(
+          <Switch
+            size="md" checked={settings.countBodyweight !== false} aria-label="Contar el peso corporal en el volumen"
+            onChange={(e) => save({ countBodyweight: e.currentTarget.checked })} data-testid="countBodyweight-switch"
+          />
         )}
       />
       <SettingsRow

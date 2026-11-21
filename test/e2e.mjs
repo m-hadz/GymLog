@@ -398,6 +398,80 @@ try {
   assert.equal(lbs.exercises[0].sets[0].weight, 45.4);
   step('Strong en libras → kg');
 
+  // 12b. Tipos de ejercicio (feature 04): dominada con lastre, plancha por tiempo y nota fija
+  await tab('train');
+  await tid('start-empty').click();
+  await tid('add-exercises').click();
+  await tid('picker').getByTestId('exercise-search').fill('pullups');
+  await tid('picker').getByTestId('exercise-row').filter({ hasText: 'Pullups' }).first().click();
+  await tid('picker').getByTestId('exercise-search').fill('plank');
+  await tid('picker').getByTestId('exercise-row').filter({ hasText: 'Plank' }).first().click();
+  await tid('picker-add').click();
+  await expectCount(cards(), 2);
+  const pull = cards().nth(0);
+  const plank = cards().nth(1);
+  // Peso corporal por defecto: sin columna de peso
+  await expectCount(pull.getByTestId('set-weight'), 0);
+  // Cambiar a "con lastre": columna "+kg"
+  await pull.getByTestId('exercise-menu').click();
+  await tid('prefs-open').click();
+  await tid('prefs-kind-lastre').click();
+  await tid('prefs-save').click();
+  await visible(pull.getByText('+kg', { exact: true }));
+  await pull.getByTestId('set-weight').first().fill('10');
+  await pull.getByTestId('set-reps').first().fill('8');
+  await pull.getByTestId('set-check').first().click();
+  // Nota fija con link
+  await pull.getByTestId('exercise-menu').click();
+  await tid('fixed-note-menu').click();
+  await tid('fixed-note-input').fill('Agarre ancho https://example.com/tecnica');
+  await tid('fixed-note-save').click();
+  await visible(pull.getByTestId('fixed-note'));
+  assert.equal(await pull.getByTestId('fixed-note').locator('a').getAttribute('target'), '_blank');
+  // Plancha por tiempo: cuenta regresiva de 2 s que sobrevive a recargar
+  await plank.getByTestId('exercise-menu').click();
+  await tid('prefs-open').click();
+  await tid('prefs-kind-tiempo').click();
+  await tid('prefs-save').click();
+  await visible(plank.getByTestId('set-time'));
+  await plank.getByTestId('set-time').first().fill('0:02');
+  await plank.getByTestId('set-timer').first().click();
+  await visible(plank.getByTestId('set-timer-clock'));
+  await page.reload();
+  await expectCount(cards(), 2);
+  await visible(cards().nth(1).getByTestId('set-timer-clock'));
+  await page.waitForTimeout(2300);
+  assert.equal(await cards().nth(1).getByTestId('set-timer-clock').getAttribute('data-running'), 'done');
+  await cards().nth(1).getByTestId('set-check').first().click();
+  // Segunda serie sin objetivo: cuenta hacia adelante y ■ deja el tiempo escrito
+  await cards().nth(1).getByTestId('add-set').click();
+  await cards().nth(1).getByTestId('set-time').nth(1).fill('');
+  await cards().nth(1).getByTestId('set-timer').nth(1).click();
+  await page.waitForTimeout(1300);
+  await cards().nth(1).getByTestId('set-timer').nth(1).click();
+  await expectValue(cards().nth(1).getByTestId('set-time').nth(1), '0:01');
+  await cards().nth(1).getByTestId('set-check').nth(1).click();
+  await shot('12b-tipos');
+  await tid('finish-workout').click();
+  await confirmUntil(text('¡Entrenamiento guardado!'));
+  // Volumen con peso corporal: (79,9 + 10) × 8 = 719 kg; la plancha no suma
+  await visible(tid('summary-stats').getByText('719 kg'));
+  await visible(text('PC + 10 kg × 8'));
+  await visible(text('0:02', true));
+  await page.waitForTimeout(500);
+  const typed = Object.values(db().workouts).find((w) => w.exercises.some((e) => e.exercise_id === 'Plank'));
+  assert.equal(typed.exercises[0].sets[0].weight, 10); // se guarda lo anotado
+  assert.deepEqual(typed.exercises[1].sets.map((x) => x.seconds), [2, 1]);
+  assert.equal(db().exercise_prefs.Pullups.kind, 'lastre');
+  assert.equal(db().exercise_prefs.Pullups.note, 'Agarre ancho https://example.com/tecnica');
+  // La nota fija aparece al empezar otro entrenamiento con el ejercicio
+  await tid('workout-menu').or(page.getByRole('button', { name: 'Más opciones' })).first().click();
+  await menuItem('Repetir entrenamiento').click();
+  await visible(cards().first().getByTestId('fixed-note'));
+  await tid('cancel-workout').click();
+  await tid('confirm-ok').click();
+  step('tipos: lastre (volumen con PC), plancha cronometrada, nota fija con link');
+
   // 13. Lectura del día: estado vacío y error claro si falta configurar el canal
   await tab('reading');
   await visible(text('Todavía no hay resúmenes'));

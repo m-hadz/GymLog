@@ -5,7 +5,7 @@ import { IconCloudUpload } from '@tabler/icons-react';
 import { Page, PageHeader } from '../components/PageHeader.jsx';
 import { SectionTitle } from '../components/ui.jsx';
 import { flush, pendingCount } from '../lib/data.js';
-import { useData } from '../lib/hooks.js';
+import { useAnalysis, useData } from '../lib/hooks.js';
 import { DataSection } from './profile/DataSection.jsx';
 import { ProfileHero } from './profile/ProfileHero.jsx';
 import { ProgressSection } from './profile/ProgressSection.jsx';
@@ -37,19 +37,20 @@ function SyncStatus({ syncError }) {
 
 export function ProfileView() {
   const state = useData();
+  const analysis = useAnalysis(); // volumen con el peso corporal (ejercicios de peso corporal/lastre/asistidos)
 
   return (
     <>
       <PageHeader title="Perfil" />
       <Page>
-        <ProfileHero workouts={state.workouts} />
+        <ProfileHero workouts={analysis} />
         <SyncStatus syncError={state.syncError} />
 
         <SectionTitle>Cuerpo</SectionTitle>
         <BodyCard />
 
         <SectionTitle>Progreso</SectionTitle>
-        <ProgressSection workouts={state.workouts} />
+        <ProgressSection workouts={analysis} />
 
         <SectionTitle>Datos</SectionTitle>
         <DataSection />
@@ -57,7 +58,7 @@ export function ProfileView() {
         <SectionTitle>Ajustes</SectionTitle>
         <SettingsSection />
 
-        <Text size="xs" c="dimmed" className={classes.footer}>GymLog v0.0.8</Text>
+        <Text size="xs" c="dimmed" className={classes.footer}>GymLog v0.0.9</Text>
       </Page>
     </>
   );

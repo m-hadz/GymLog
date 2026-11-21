@@ -1,4 +1,4 @@
-# GymLog — v0.0.8
+# GymLog — v0.0.9
 
 Registro de entrenamientos personal, inspirado en el flujo de Strong y escrito desde cero.
 Frontend en React + [Mantine](https://mantine.dev) (compilado con Vite, instalable como PWA),
@@ -26,7 +26,17 @@ funciones serverless en Vercel y Postgres gratuito en Supabase.
 - **Tus datos:** importar el CSV de Strong (sin duplicar si lo reimportas; convierte libras a
   kg), exportar en formato Strong, descargar y restaurar un respaldo JSON (se combina, no borra).
 
-### Nuevo en v0.0.8
+### Nuevo en v0.0.9
+- **Tipos de ejercicio** ([feature 04](docs/features/04-pendientes-validados.md)): en Ajustes del
+  ejercicio, *peso y reps*, *peso corporal*, *con lastre* (anotas lo agregado), *asistido* (anotas la
+  asistencia) o *por tiempo*. Volumen, 1RM y récords usan la carga real con tu peso corporal (ajuste
+  "Contar el peso corporal en el volumen" en Perfil → Ajustes → Cuerpo). Se ve "PC + 10 kg × 8".
+- **Series por tiempo** con cronómetro en la fila: cuenta regresiva con sonido si hay objetivo, hacia
+  adelante si no; sobrevive a bloquear la pantalla. Récord y gráficos de tiempo.
+- **Nota fija por ejercicio** (asiento, agarre, link a un video), arriba del ejercicio en todos los
+  entrenamientos. Menú del ejercicio → "Nota fija", o desde la ficha.
+
+### v0.0.8
 - **Peso corporal y medidas** ([feature 03](docs/features/03-peso-corporal-medidas.md)): Perfil →
   Cuerpo muestra el **peso de tendencia** (media móvil ponderada por días, no salta con el agua y la
   comida), el último registro y el ritmo en kg/semana. Pantalla `#/body` con gráfico de registros y
@@ -216,6 +226,9 @@ src/
     warmup.js         Series de calentamiento por porcentaje del peso de trabajo
     muscles.js        Estímulo directo por grupo muscular (mapa del cuerpo)
     body.js           Peso de tendencia, ritmo, peso a una fecha, grasa estimada
+    kinds.js          Tipos de ejercicio, carga efectiva con peso corporal, tiempo mm:ss
+    effective.js      Entrenamientos con carga efectiva (cacheado) para mostrar y analizar
+    set-timer.js      Cronómetro de series por tiempo (guarda la hora de inicio)
     strong-csv.js     Importar/exportar CSV de Strong
     rest-timer.js, plates.js, format.js, router.js, api.js
   components/         Layout (navegación, descanso), encabezados, hojas, diálogos, selector de ejercicios
@@ -232,8 +245,6 @@ Las estadísticas se calculan en el cliente: con miles de entrenamientos sigue s
 y el backend se mantiene mínimo.
 
 ## Pendiente (ideas)
-- Ejercicios con lastre o asistidos (carga real, usa el peso corporal).
 - Rachas y regiones dentro de cada músculo (ver `docs/features/`).
-- Ejercicios por tiempo con cronómetro; superseries.
-- Nota fija por ejercicio (asiento, agarre) y unir ejercicios duplicados.
+- Unir ejercicios duplicados.
 - Buscador en español para el catálogo.

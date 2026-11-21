@@ -1,0 +1,31 @@
+.box {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 6px;
+  align-items: start;
+  padding: 7px 10px;
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-yellow-light);
+}
+
+.icon {
+  margin-top: 3px;
+  color: var(--mantine-color-yellow-light-color);
+}
+
+.text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.link {
+  color: var(--mantine-color-anchor);
+  text-decoration: underline;
+}
+
+.more {
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 650;
+  color: var(--mantine-color-yellow-light-color);
+}

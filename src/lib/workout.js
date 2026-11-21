@@ -3,6 +3,8 @@
 import { state, getActive, setActive, getSettings, prefsOf } from './data.js';
 import { exerciseName, getExercise } from './catalog.js';
 import { exerciseSessions, e1rm, previousSets } from './stats.js';
+import { analysisWorkouts, bodyweightOn, kindOf } from './effective.js';
+import { BODYWEIGHT_KINDS, effectiveLoad, localDay } from './kinds.js';
 import { defaultIncrement, knownWeights } from './loads.js';
 import { suggest } from './progression.js';
 import { DEFAULT_SCHEME, warmupSets } from './warmup.js';
@@ -38,7 +40,7 @@ export async function startWorkout({ template = null, from = null } = {}) {
     template_id: template?.id || null,
     exercises: (src?.exercises || []).map((e) => {
       const sets = (e.sets || []).filter((s) => s.done !== false)
-        .map((s) => ({ type: s.type || 'N', weight: null, reps: null, done: false, target: { weight: s.weight, reps: s.reps } }));
+        .map((s) => ({ type: s.type || 'N', weight: null, reps: null, done: false, target: targetOf(s) }));
       const ex = {
         exercise_id: e.exercise_id,
         name: exerciseName(e.exercise_id, e.name),
@@ -46,7 +48,7 @@ export async function startWorkout({ template = null, from = null } = {}) {
         notes: '',
         sets,
       };
-      if (template && e.auto_warmup) {
+      if (template && e.auto_warmup && kindOf(e.exercise_id) === 'peso_reps') {
         ex.auto_warmup = true;
         if (!sets.some((s) => s.type === 'W')) {
           const work = startWeight(e.exercise_id, sets, template.id);
@@ -111,23 +113,31 @@ export function templateFromWorkout(w, name = w.name) {
       exercise_id: e.exercise_id,
       name: e.name,
       rest: e.rest ?? null,
-      sets: e.sets.filter((s) => s.done !== false).map((s) => ({ type: s.type || 'N', weight: s.weight, reps: s.reps })),
+      sets: e.sets.filter((s) => s.done !== false).map((s) => ({ type: s.type || 'N', weight: s.weight, reps: s.reps, ...(s.seconds ? { seconds: s.seconds } : {}) })),
     })),
   };
 }
 
+const targetOf = (s) => ({ weight: s.weight, reps: s.reps, ...(s.seconds ? { seconds: s.seconds } : {}) });
+
 // Compara una serie recién marcada con tu historial:
 // 'pr' = mejor que nunca, 'up' / 'eq' / 'down' = frente a la misma serie de la vez anterior.
-export function setFeedback(exId, s, prevSet, excludeId) {
-  if (s.type === 'W' || !s.reps) return null;
-  const sessions = exerciseSessions(state.workouts.filter((w) => w.id !== excludeId), exId);
-  const score = (x) => (x.weight ? e1rm(x.weight, x.reps) : x.reps || 0);
+// Usa la carga efectiva en peso corporal/lastre/asistido y el tiempo en ejercicios por tiempo.
+export function setFeedback(exId, set, prevSet, excludeId, date = new Date().toISOString()) {
+  const kind = kindOf(exId);
+  const timed = kind === 'tiempo';
+  if (set.type === 'W' || (timed ? !set.seconds : !set.reps)) return null;
+  const bw = BODYWEIGHT_KINDS.has(kind) ? bodyweightOn(localDay(date)) : null;
+  const eff = (x) => (BODYWEIGHT_KINDS.has(kind) ? { ...x, weight: effectiveLoad(kind, x.weight || 0, bw) } : x);
+  const score = timed ? (x) => (x.reps ? 0 : x.seconds || 0) : (x) => (x.weight ? e1rm(x.weight, x.reps) : x.reps || 0);
+  const s = eff(set);
+  const sessions = exerciseSessions(analysisWorkouts().filter((w) => w.id !== excludeId), exId);
   const cur = score(s);
   if (!cur) return null;
-  const best = Math.max(0, ...sessions.flatMap((ss) => ss.working.filter((x) => !!x.weight === !!s.weight).map(score)));
+  const best = Math.max(0, ...sessions.flatMap((ss) => ss.working.filter((x) => timed || !!x.weight === !!s.weight).map(score)));
   if (best && cur > best * 1.001) return 'pr';
   if (!prevSet || prevSet.type === 'W') return null;
-  const prev = score(prevSet);
+  const prev = score(eff(prevSet));
   if (!prev) return null;
   const d = cur / prev - 1;
   return d > 0.005 ? 'up' : d > -0.005 ? 'eq' : 'down';
