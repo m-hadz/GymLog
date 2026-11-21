@@ -4,6 +4,7 @@ import { state, getActive, setActive, getSettings, prefsOf } from './data.js';
 import { exerciseName, getExercise } from './catalog.js';
 import { exerciseSessions, e1rm, previousSets } from './stats.js';
 import { analysisWorkouts, bodyweightOn, kindOf } from './effective.js';
+import { stallOf } from './stalls.js';
 import { BODYWEIGHT_KINDS, effectiveLoad, localDay } from './kinds.js';
 import { defaultIncrement, knownWeights } from './loads.js';
 import { suggest } from './progression.js';
@@ -95,7 +96,9 @@ function startWeight(exId, sets, templateId) {
     const ctx = loadContext({ exercise_id: exId });
     const g = suggest({
       workouts: state.workouts, exId, templateId, prefs: ctx.prefs, increment: ctx.inc, barbell: ctx.barbell,
+      stalled: !!stallOf(exId), resetPct: (settings.resetPct ?? 10) / 100,
     });
+    if (g?.reset?.weight) return g.reset.weight; // estancado: se calienta para el reinicio
     if (g?.main.weight) return g.main.weight;
   }
   if (first?.target?.weight) return first.target.weight;

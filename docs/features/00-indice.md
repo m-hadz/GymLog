@@ -2,7 +2,7 @@
 
 Especificaciones de las 12 features elegidas a partir de la investigación del 2026-11-20 (4 agentes:
 competencia directa, apps de progresión, análisis y hábito, y lo que piden los usuarios). Implementadas:
-01 y la base común A (tabla) y B (`src/lib/loads.js`), en v0.0.6; 02 y una primera versión de 08 en v0.0.7; 03 en v0.0.8; 04 (sin superseries) en v0.0.9. Cada documento trae: problema, evidencia, qué hay hoy en el código, reglas, interfaz,
+01 y la base común A (tabla) y B (`src/lib/loads.js`), en v0.0.6; 02 y una primera versión de 08 en v0.0.7; 03 en v0.0.8; 04 (sin superseries), 05 y 06 en v0.0.9. Cada documento trae: problema, evidencia, qué hay hoy en el código, reglas, interfaz,
 cambios de datos, casos borde, qué no incluye, **criterios de aceptación** y pruebas.
 
 > Sobre la evidencia: ningún agente pudo leer Reddit (bloquea el acceso automático) y Strong y Hevy

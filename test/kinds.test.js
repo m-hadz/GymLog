@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { effectiveLoad, fmtSecs, parseSecs, resolveKind, withEffectiveLoads } from '../src/lib/kinds.js';
-import { computePRs, e1rm, exerciseRecords, exerciseSessions, workoutVolume } from '../src/lib/stats.js';
+import { effectiveLoad, fmtSecs, parseSecs, resolveKind, resolveLoadMode, withEffectiveLoads } from '../src/lib/kinds.js';
+import { computePRs, e1rm, exerciseRecords, exerciseSessions, prCount as prCountOf, workoutVolume } from '../src/lib/stats.js';
 import { bodyweightLookup } from '../src/lib/body.js';
 import { fmtSet } from '../src/lib/format.js';
 
@@ -118,4 +118,41 @@ test('peso corporal por fecha: tendencia, y el primer registro para entrenamient
   assert.equal(at('2026-10-01'), 80); // 40 días antes del primero
   assert.equal(at('2026-08-01'), null);
   assert.equal(bodyweightLookup([])('2026-11-10'), null);
+});
+
+test('por mano: curl 3 × 10 con 12 kg suma 720 kg y el 1RM sigue sobre 12 kg', () => {
+  const sets = [[12, 10], [12, 10], [12, 10]];
+  const mode = { curl: 'por_mano', remo: 'unilateral', banca: 'total' };
+  const o = { kindFor: () => 'peso_reps', modeFor: (id) => mode[id], bodyweightFor: () => 80 };
+  const [w] = withEffectiveLoads([W('a', '2026-11-01', 'curl', sets)], o);
+  assert.equal(workoutVolume(w), 720);
+  const [sess] = exerciseSessions([w], 'curl');
+  assert.equal(sess.bestE1rm, e1rm(12, 10));
+  assert.equal(sess.maxWeight, 12);
+  assert.equal(fmtSet(w.exercises[0].sets[0]), '12 kg × 10');
+  const [r] = withEffectiveLoads([W('b', '2026-11-01', 'remo', [[30, 10], [30, 10], [30, 10]])], o);
+  assert.equal(workoutVolume(r), 1800);
+  const src = [W('c', '2026-11-01', 'banca', [[60, 5]])];
+  assert.equal(withEffectiveLoads(src, o)[0], src[0]);
+});
+
+test('cambiar a por mano recalcula todo el historial: sin récords nuevos por el cambio', () => {
+  const ws = [W('a', '2026-11-01', 'curl', [[12, 10]]), W('b', '2026-11-03', 'curl', [[12, 10]])];
+  const doubled = withEffectiveLoads(ws, { kindFor: () => 'peso_reps', modeFor: () => 'por_mano', bodyweightFor: () => null });
+  assert.equal(prCountOf(computePRs(doubled).get('b')), 0);
+  assert.equal(exerciseRecords(exerciseSessions(doubled, 'curl')).weight.value, 12);
+  assert.equal(exerciseRecords(exerciseSessions(doubled, 'curl')).setVolume.value, 240);
+});
+
+test('modo de carga: solo con peso y reps o lastre; "todas las mancuernas" como respaldo', () => {
+  assert.equal(resolveLoadMode({ load_mode: 'por_mano' }, 'peso_reps'), 'por_mano');
+  assert.equal(resolveLoadMode({ load_mode: 'unilateral' }, 'asistido'), 'total');
+  assert.equal(resolveLoadMode({ load_mode: 'unilateral' }, 'lastre'), 'unilateral');
+  assert.equal(resolveLoadMode(null, 'peso_reps', { category: 'Mancuerna', dumbbellMode: 'por_mano' }), 'por_mano');
+  assert.equal(resolveLoadMode({ load_mode: 'total' }, 'peso_reps', { category: 'Mancuerna', dumbbellMode: 'por_mano' }), 'total');
+  assert.equal(resolveLoadMode(null, 'peso_reps', { category: 'Máquina', dumbbellMode: 'por_mano' }), 'total');
+  // lastre unilateral: el volumen dobla la carga efectiva
+  const [w] = withEffectiveLoads([W('a', '2026-11-01', 'dom', [[10, 8]])],
+    { kindFor: () => 'lastre', modeFor: () => 'unilateral', bodyweightFor: () => 80 });
+  assert.equal(workoutVolume(w), 1440);
 });

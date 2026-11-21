@@ -9,10 +9,11 @@ import {
   IconBarbell, IconCalendarEvent, IconChevronRight, IconClock, IconEdit, IconFlame, IconPin, IconRepeat, IconScale, IconStack2,
   IconTrash, IconTrophy, IconWeight,
 } from '@tabler/icons-react';
-import { useAnalysis, useCatalog, useData } from '../../lib/hooks.js';
+import { useAnalysis, useCatalog, useData, useSettings, useStalls } from '../../lib/hooks.js';
+import { stallSince } from '../workout/StallSheet.jsx';
 import { getExercise } from '../../lib/catalog.js';
 import { prefsOf, remove } from '../../lib/data.js';
-import { BODYWEIGHT_KINDS, KIND_LABEL, fmtSecs, resolveKind } from '../../lib/kinds.js';
+import { BODYWEIGHT_KINDS, KIND_LABEL, LOAD_MODE_LABEL, fmtSecs, resolveKind, resolveLoadMode } from '../../lib/kinds.js';
 import { FixedNoteBox, openFixedNote } from './FixedNote.jsx';
 import { openBodyForm } from '../body/BodyForm.jsx';
 import { computePRs, e1rm, exerciseRecords, exerciseSessions, recordLoad } from '../../lib/stats.js';
@@ -52,15 +53,18 @@ export function ExerciseDetail({ id, stickyTop = 0 }) {
   const name = ex?.name || sessions.at(-1)?.workout.exercises.find((e) => e.exercise_id === id)?.name || 'Ejercicio';
   const prefs = useMemo(() => allPrefs.find((p) => p.id === id) || null, [allPrefs, id]);
   const kind = resolveKind(prefs, ex || { name });
+  const { dumbbellMode } = useSettings();
+  const mode = resolveLoadMode(prefs, kind, { category: ex?.category, dumbbellMode });
   const weighted = kind !== 'tiempo' && sessions.some((s) => s.maxWeight > 0);
   const bwKind = BODYWEIGHT_KINDS.has(kind);
-  const k = { kind, weighted, bwKind, withBw: bwKind && sessions.some((s) => s.working.some((x) => x.bw != null)) };
+  const stallSt = useStalls().get(id);
+  const k = { kind, weighted, bwKind, stall: stallSt?.stalled ? stallSt : null, withBw: bwKind && sessions.some((s) => s.working.some((x) => x.bw != null)) };
 
   const change = (t) => { lastTab = t; setTab(t); };
 
   return (
     <Box className={classes.root}>
-      <Hero ex={ex} name={name} sessions={sessions} weighted={weighted} kind={kind} />
+      <Hero ex={ex} name={name} sessions={sessions} weighted={weighted} kind={kind} mode={mode} />
       {prefs?.note ? <FixedNoteBox note={prefs.note} className={classes.fixedNote} onEdit={() => openFixedNote({ id, name })} /> : null}
       {bwKind && !bodyMetrics.length ? (
         <Card withBorder padding="sm" className={classes.bwHint} data-testid="bw-hint">
@@ -92,7 +96,7 @@ export function ExerciseDetail({ id, stickyTop = 0 }) {
 
 // ---------- Cabecera ----------
 
-function Hero({ ex, name, sessions, weighted, kind }) {
+function Hero({ ex, name, sessions, weighted, kind, mode }) {
   const last = sessions.at(-1);
   const bestTime = sessions.reduce((a, s) => Math.max(a, s.bestSeconds), 0);
   const best = sessions.reduce((a, s) => Math.max(a, s.bestE1rm), 0);
@@ -107,6 +111,7 @@ function Hero({ ex, name, sessions, weighted, kind }) {
             {ex ? <Badge variant="light" color="brand">{ex.bodyPart}</Badge> : null}
             {ex ? <Badge variant="light" color="gray">{ex.category}</Badge> : null}
             {kind !== 'peso_reps' ? <Badge variant="light" color="teal" data-testid="kind-badge">{KIND_LABEL[kind]}</Badge> : null}
+            {mode !== 'total' ? <Badge variant="light" color="teal" data-testid="mode-badge">{LOAD_MODE_LABEL[mode]}</Badge> : null}
             {ex?.level ? <Badge variant="light" color="gray">{LEVEL[ex.level] || ex.level}</Badge> : null}
             {ex?.custom ? <Badge variant="light" color="grape">propio</Badge> : null}
           </Group>
@@ -329,7 +334,10 @@ function Charts({ sessions, k }) {
       cards.push(<Text key="bw" size="xs" c="dimmed">El 1RM estimado y el volumen incluyen tu peso corporal (tendencia de cada fecha).</Text>);
     }
   }
-  return <Stack gap="sm">{control}{cards}</Stack>;
+  const stallTag = k.stall ? (
+    <Badge color="orange" variant="light" size="lg" data-testid="stall-since">Estancado desde el {stallSince(k.stall)}</Badge>
+  ) : null;
+  return <Stack gap="sm">{control}{stallTag}{cards}</Stack>;
 }
 
 function Chart({ title, points, format, axisFormat, color }) {

@@ -3,7 +3,7 @@
 // Variables: SHOTS=/ruta para guardar capturas (por defecto, una carpeta temporal).
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
@@ -471,6 +471,90 @@ try {
   await tid('cancel-workout').click();
   await tid('confirm-ok').click();
   step('tipos: lastre (volumen con PC), plancha cronometrada, nota fija con link');
+
+  // 12c. Mancuernas por mano (feature 05): pregunta única, "kg c/u" y volumen ×2
+  await tab('train');
+  await tid('start-empty').click();
+  await tid('add-exercises').click();
+  await tid('picker').getByTestId('exercise-search').fill('bicep curl (d');
+  await tid('picker').getByTestId('exercise-row').filter({ hasText: 'Bicep Curl (Dumbbell)' }).first().click();
+  await tid('picker-add').click();
+  const db1 = cards().first();
+  await visible(db1.getByTestId('dumbbell-ask'));
+  assert.equal((await db1.getByTestId('weight-head').innerText()).toLowerCase(), 'kg');
+  await shot('12c-pregunta');
+  await db1.getByTestId('dumbbell-all').click();
+  await db1.getByTestId('dumbbell-one').click();
+  await expectCount(db1.getByTestId('dumbbell-ask'), 0);
+  assert.equal((await db1.getByTestId('weight-head').innerText()).toLowerCase(), 'kg c/u');
+  await db1.getByTestId('set-weight').first().fill('12');
+  await db1.getByTestId('set-reps').first().fill('10');
+  await db1.getByTestId('set-check').first().click();
+  await shot('12c-mancuerna');
+  await tid('finish-workout').click();
+  await confirmUntil(text('¡Entrenamiento guardado!'));
+  await visible(tid('summary-stats').getByText('240 kg')); // 2 × 12 kg × 10
+  await page.waitForTimeout(500);
+  const curlRow = Object.values(db().exercises).find((e) => e.name === 'Bicep Curl (Dumbbell)');
+  const curlPrefs = db().exercise_prefs[curlRow.id];
+  assert.equal(curlPrefs.load_mode, 'por_mano');
+  // Cambiar el modo avisa cuántas sesiones se recalculan
+  await page.locator('a[href^="#/exercise/"]').filter({ hasText: 'Bicep Curl (Dumbbell)' }).first().click();
+  await visible(tid('mode-badge'));
+  await page.getByRole('tab', { name: 'Descripción' }).click();
+  await tid('prefs-mode-total').click();
+  await tid('prefs-save').click();
+  await visible(text(/Esto cambia el volumen de tus \d+ sesiones anteriores \(se reduce a la mitad\)/));
+  await tid('confirm-ok').click();
+  await expectCount(tid('mode-badge'), 0);
+  await page.waitForTimeout(500);
+  assert.equal(db().exercise_prefs[curlPrefs.id].load_mode, 'total');
+  step('mancuernas: pregunta única, kg c/u, volumen ×2, aviso al cambiar el modo');
+
+  // 12d. Estancamiento (feature 06): 12 sesiones planas de Chest Press 63 × 7 en los últimos 24 días
+  const pad = (n) => String(n).padStart(2, '0');
+  const stamp = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} 18:00:00`;
+  const rows = ['Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Weight Unit,Reps,Distance,Seconds,Notes,Workout Notes,RPE'];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(Date.now() - (2 + 2 * i) * 864e5);
+    rows.push(`${stamp(d)},"Pecho plano",40m,"Chest Press (Machine)",1,57,kg,9,0,0,"","",`);
+    rows.push(`${stamp(d)},"Pecho plano",40m,"Chest Press (Machine)",2,63,kg,7,0,0,"","",`);
+  }
+  const stallCsv = join(TMP, 'stall.csv');
+  writeFileSync(stallCsv, rows.join('\n'));
+  await tab('profile');
+  await page.setInputFiles('input[accept*=csv]', stallCsv);
+  await confirmUntil(text('Importados'));
+  await visible(tid('stalled-row').filter({ hasText: 'Chest Press (Machine)' }));
+  // En el entrenamiento: etiqueta, reinicio como opción principal (63 × 7 con pesos 57 y 63 → 57 × 10)
+  await tab('train');
+  await tid('start-empty').click();
+  await tid('add-exercises').click();
+  await tid('picker').getByTestId('exercise-search').fill('chest press (m');
+  await tid('picker').getByTestId('exercise-row').filter({ hasText: 'Chest Press (Machine)' }).first().click();
+  await tid('picker-add').click();
+  const cp = cards().first();
+  await visible(cp.getByTestId('stall-tag'));
+  assert.equal((await cp.getByTestId('goal-main').innerText()).trim(), '57 × 10');
+  assert.equal(await cp.getByTestId('goal-line').getAttribute('data-source'), 'reinicio');
+  await visible(cp.getByTestId('goal-alt'));
+  await cp.getByTestId('stall-tag').click();
+  await visible(tid('stall-sheet').getByText('Reinicio: 57 × 10.'));
+  await shot('12d-estancado');
+  await tid('stall-use-reset').click();
+  await cp.getByTestId('set-check').first().click(); // el ✓ guarda el reinicio
+  await expectValue(cp.getByTestId('set-weight').first(), '57');
+  await expectValue(cp.getByTestId('set-reps').first(), '10');
+  await expectCount(cp.locator('[data-testid=set-row][data-fb]'), 1);
+  // Ignorar por 7 sesiones: la etiqueta desaparece y se guarda en el servidor
+  await cp.getByTestId('stall-tag').click();
+  await tid('stall-snooze').click();
+  await expectCount(cp.getByTestId('stall-tag'), 0);
+  await page.waitForTimeout(500);
+  assert.ok(Object.values(db().exercise_prefs).some((p) => p.stall_snooze_until));
+  await tid('cancel-workout').click();
+  await tid('confirm-ok').click();
+  step('estancamiento: tarjeta del perfil, etiqueta, reinicio 57 × 10 con ✓, ignorar por 7 sesiones');
 
   // 13. Lectura del día: estado vacío y error claro si falta configurar el canal
   await tab('reading');

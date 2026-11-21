@@ -181,6 +181,8 @@ const DEFAULT_SETTINGS = {
   warmupShow: true, warmupFirstOnly: true, warmupRest: 60, warmupScheme: null, // null = DEFAULT_SCHEME
   // feature 03: sexo ('m' | 'f' | null) y estatura (cm) para la grasa estimada; medidas que se muestran
   sex: null, height: null, bodyMeasures: ['cintura'],
+  resetPct: 10, // % que baja el reinicio de un ejercicio estancado (feature 06, 5–15)
+  dumbbellMode: null, // modo de carga para mancuernas sin modo elegido ("para todas las mancuernas", feature 05)
   countBodyweight: true, // contar el peso corporal en el volumen (feature 04)
   muscleTarget: 8, // series directas por semana para que un músculo esté "Bien" (mapa del cuerpo)
 };

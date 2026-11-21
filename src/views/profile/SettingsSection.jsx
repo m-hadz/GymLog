@@ -5,7 +5,7 @@ import {
 } from '@mantine/core';
 import {
   IconBell, IconBolt, IconCircleCheck, IconCloudOff, IconDeviceMobile, IconHourglass, IconKey, IconMoonStars,
-  IconRefresh, IconTrendingUp, IconWeight,
+  IconRefresh, IconTrendingDown, IconTrendingUp, IconWeight,
 } from '@tabler/icons-react';
 import { notify } from '../../components/dialogs.jsx';
 import { api, getKey, setKey } from '../../lib/api.js';
@@ -107,6 +107,16 @@ export function SettingsSection() {
           )}
         />
         <SettingsRow icon={IconTrendingUp} color="teal" label="Mostrar objetivo para superar" description="Peso y reps para superar tu 1RM estimado de la vez anterior" right={toggle('suggest', 'Mostrar objetivo para superar')} />
+        <SettingsRow
+          icon={IconTrendingDown} color="orange" label="Reinicio al estancarse"
+          description="Cuánto baja el peso, para superar tu 1RM con más reps"
+          right={(
+            <SegmentedControl
+              size="xs" radius="md" value={String(settings.resetPct ?? 10)} onChange={(v) => save({ resetPct: Number(v) })}
+              data={['5', '10', '15'].map((v) => ({ value: v, label: `${v} %` }))} aria-label="Reinicio al estancarse" data-testid="reset-pct"
+            />
+          )}
+        />
         <SettingsRow icon={IconBolt} color="yellow" label="Registrar RPE por serie" description="Esfuerzo percibido del 6 al 10" right={toggle('rpe', 'Registrar RPE por serie')} />
         <SettingsRow icon={IconDeviceMobile} color="cyan" label="Pantalla encendida durante el entrenamiento" right={toggle('wake', 'Pantalla encendida durante el entrenamiento')} />
         <SettingsRow icon={IconBell} color="pink" label="Sonido al terminar el descanso" right={toggle('sound', 'Sonido al terminar el descanso')} />

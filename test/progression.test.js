@@ -126,3 +126,63 @@ test('comparar solo con la misma plantilla, excluir el entrenamiento actual y fe
   assert.equal(sug(w, { excludeId: 'b' }).ref.weight, 50);
   assert.equal(sug(w, { before: daysAgo(3) }).ref.weight, 50);
 });
+
+// ---- Feature 06: estancamiento y reinicio ----
+import { resetTarget, stallStatus } from '../src/lib/progression.js';
+
+const NOW6 = Date.parse('2026-11-21T12:00:00Z');
+// sesiones sintéticas: valores de 1RM (de más antigua a más reciente), una cada 2 días hasta hoy
+const fakeSessions = (values, { lastDaysAgo = 1, reps = false } = {}) => values.map((v, i) => ({
+  workout: { started_at: new Date(NOW6 - (lastDaysAgo + 2 * (values.length - 1 - i)) * 864e5).toISOString() },
+  bestE1rm: reps ? 0 : v,
+  working: [{ reps: reps ? v : 5, weight: reps ? 0 : 50 }],
+}));
+
+test('estancado: promedios 75,6 / 75,6; no si las últimas 6 promedian 1,5 % más', () => {
+  const flat = Array(12).fill(75.6);
+  const st = stallStatus(fakeSessions(flat), { now: NOW6 });
+  assert.equal(st.stalled, true);
+  assert.ok(Math.abs(st.recent - 75.6) < 1e-9);
+  const up = [...Array(6).fill(75.6), ...Array(6).fill(75.6 * 1.015)];
+  assert.equal(stallStatus(fakeSessions(up), { now: NOW6 }).stalled, false);
+  const justOver = [...Array(6).fill(100), ...Array(6).fill(100.9)];
+  assert.equal(stallStatus(fakeSessions(justOver), { now: NOW6 }).stalled, true);
+});
+
+test('estancado: menos de 12 sesiones o última hace más de 21 días no se evalúa', () => {
+  assert.equal(stallStatus(fakeSessions(Array(11).fill(70)), { now: NOW6 }), null);
+  assert.equal(stallStatus(fakeSessions(Array(12).fill(70), { lastDaysAgo: 22 }), { now: NOW6 }), null);
+  assert.equal(stallStatus([], { now: NOW6 }), null);
+});
+
+test('estancado sin peso: compara las reps', () => {
+  const st = stallStatus(fakeSessions(Array(12).fill(12), { reps: true }), { now: NOW6 });
+  assert.equal(st.metric, 'reps');
+  assert.equal(st.stalled, true);
+});
+
+test('ignorar por 7 sesiones', () => {
+  const s = fakeSessions(Array(18).fill(70));
+  const at = (i) => s[i].workout.started_at;
+  assert.equal(stallStatus(s, { now: NOW6, snoozedAt: at(11) }).stalled, false); // 6 después
+  assert.equal(stallStatus(s, { now: NOW6, snoozedAt: at(10) }).stalled, true); // 7 después
+});
+
+test('reinicio: Chest Press 63 × 7 con pesos 57 y 63 → 57 × 10', () => {
+  assert.deepEqual(resetTarget({ weight: 63, reps: 7 }, { inc: 1, known: [57, 63] }), { weight: 57, reps: 10, pct: 0.1 });
+});
+
+test('reinicio: si harían falta más de 15 reps, baja un porcentaje menor', () => {
+  const r = resetTarget({ weight: 100, reps: 13 }, { inc: 1, known: [] }); // al 10 %: 90 × 16
+  assert.ok(r.reps <= 15, `reps ${r.reps}`);
+  assert.ok(r.pct < 0.1 && r.pct >= 0.05, `pct ${r.pct}`);
+  assert.equal(resetTarget({ weight: 0, reps: 5 }, { inc: 1 }), null);
+});
+
+test('suggest con estancamiento agrega el reinicio', () => {
+  const ws = [{ id: 'a', started_at: '2026-11-20T10:00:00Z', exercises: [{ exercise_id: 'cp', sets: [{ type: 'N', weight: 63, reps: 7, done: true }, { type: 'N', weight: 57, reps: 9, done: false }] }] },
+    { id: 'b', started_at: '2026-11-10T10:00:00Z', exercises: [{ exercise_id: 'cp', sets: [{ type: 'N', weight: 57, reps: 10, done: true }] }] }];
+  const g = suggest({ workouts: ws, exId: 'cp', increment: 1, stalled: true, now: NOW6 });
+  assert.deepEqual(g.reset, { weight: 57, reps: 10, pct: 0.1 });
+  assert.equal(suggest({ workouts: ws, exId: 'cp', increment: 1, now: NOW6 }).reset, null);
+});

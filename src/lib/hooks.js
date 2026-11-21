@@ -4,6 +4,7 @@ import { state, dataChannel, activeChannel, settingsChannel, getActive, getSetti
 import { catalogChannel } from './catalog.js';
 import { restChannel, getRest } from './rest-timer.js';
 import { analysisWorkouts } from './effective.js';
+import { stallMap } from './stalls.js';
 
 // Datos sincronizados. Devuelve `state` (workouts, templates, exercises, syncError…).
 // Las listas cambian de identidad en cada cambio, así sirven como dependencias de useMemo.
@@ -18,6 +19,12 @@ export function useAnalysis() {
   useCatalog();
   useSettings();
   return analysisWorkouts();
+}
+
+// Estancamiento por ejercicio (feature 06)
+export function useStalls() {
+  useAnalysis();
+  return stallMap();
 }
 
 // Re-renderiza cuando el catálogo de ejercicios termina de cargar.

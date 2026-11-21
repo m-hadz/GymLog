@@ -35,6 +35,15 @@ funciones serverless en Vercel y Postgres gratuito en Supabase.
   adelante si no; sobrevive a bloquear la pantalla. Récord y gráficos de tiempo.
 - **Nota fija por ejercicio** (asiento, agarre, link a un video), arriba del ejercicio en todos los
   entrenamientos. Menú del ejercicio → "Nota fija", o desde la ficha.
+- **Mancuernas por mano y unilaterales** ([feature 05](docs/features/05-mancuernas-por-mano.md)): en
+  Ajustes del ejercicio, la carga se anota *total*, *por mano* o *unilateral*; en los dos últimos el
+  volumen cuenta el doble y el 1RM queda sobre lo anotado. La primera vez que usas una mancuerna, la app
+  pregunta una sola vez (con opción "para todas las mancuernas"). Columna "kg c/u" / "kg/lado".
+- **Estancamiento y reinicio** ([feature 06](docs/features/06-estancamiento-reinicio.md)): un ejercicio está
+  estancado si el 1RM estimado de sus últimas 6 sesiones no supera en más de 1 % al de las 6 anteriores.
+  Etiqueta "Estancado" en el entrenamiento, tarjeta "Estancados" en el perfil y en la ficha. Propone un
+  **reinicio** (−10 % de peso y las reps para superar tu 1RM, ajustable 5/10/15 %) como opción principal;
+  "Ignorar por 7 sesiones".
 
 ### v0.0.8
 - **Peso corporal y medidas** ([feature 03](docs/features/03-peso-corporal-medidas.md)): Perfil →
@@ -229,6 +238,7 @@ src/
     kinds.js          Tipos de ejercicio, carga efectiva con peso corporal, tiempo mm:ss
     effective.js      Entrenamientos con carga efectiva (cacheado) para mostrar y analizar
     set-timer.js      Cronómetro de series por tiempo (guarda la hora de inicio)
+    stalls.js         Ejercicios estancados (feature 06), cacheado
     strong-csv.js     Importar/exportar CSV de Strong
     rest-timer.js, plates.js, format.js, router.js, api.js
   components/         Layout (navegación, descanso), encabezados, hojas, diálogos, selector de ejercicios

@@ -5,17 +5,21 @@
 import { state, getSettings, prefsOf } from './data.js';
 import { catalogChannel, getExercise } from './catalog.js';
 import { bodyweightLookup } from './body.js';
-import { resolveKind, withEffectiveLoads } from './kinds.js';
+import { resolveKind, resolveLoadMode, withEffectiveLoads } from './kinds.js';
 
 export const kindOf = (exId) => resolveKind(prefsOf(exId), getExercise(exId));
+export const loadModeOf = (exId) => resolveLoadMode(prefsOf(exId), kindOf(exId), {
+  category: getExercise(exId)?.category, dumbbellMode: getSettings().dumbbellMode,
+});
 
 let cache = {};
 export function analysisWorkouts() {
-  const count = getSettings().countBodyweight !== false;
-  const key = [state.workouts, state.exercise_prefs, state.body_metrics, state.exercises, catalogChannel.version(), count];
+  const { countBodyweight, dumbbellMode } = getSettings();
+  const count = countBodyweight !== false;
+  const key = [state.workouts, state.exercise_prefs, state.body_metrics, state.exercises, catalogChannel.version(), count, dumbbellMode];
   if (cache.key?.every((v, i) => v === key[i])) return cache.value;
   const bodyweightFor = bodyweightLookup(state.body_metrics);
-  const value = withEffectiveLoads(state.workouts, { kindFor: kindOf, bodyweightFor, countBodyweight: count });
+  const value = withEffectiveLoads(state.workouts, { kindFor: kindOf, modeFor: loadModeOf, bodyweightFor, countBodyweight: count });
   cache = { key, value };
   return value;
 }

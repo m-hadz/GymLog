@@ -1,0 +1,18 @@
+.card {
+  border-radius: var(--mantine-radius-lg);
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--mantine-color-default-border);
+}
+
+.row:active {
+  background: var(--mantine-color-default-hover);
+}
