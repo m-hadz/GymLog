@@ -138,3 +138,16 @@ test('peso corporal: un registro por día, medidas y validación', async () => {
     assert.equal(r.status, 400, JSON.stringify(bad));
   }
 });
+
+test('user_settings: una fila id = me con data objeto (feature 09)', async () => {
+  let r = await call('POST', 'user_settings', { id: 'me', data: { goal: { mode: 'cadencia', every_days: 2, tolerance: 1 }, pauses: [] } });
+  assert.equal(r.status, 200);
+  r = await call('GET', 'bootstrap');
+  const rows = (await r.json()).user_settings;
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].data.goal.mode, 'cadencia');
+  for (const bad of [{ id: 'otro', data: {} }, { id: 'me', data: [] }, { id: 'me', data: { x: 'a'.repeat(33 * 1024) } }]) {
+    r = await call('POST', 'user_settings', bad);
+    assert.ok(r.status === 400 || r.status === 413, `${JSON.stringify(bad).slice(0, 40)} → ${r.status}`);
+  }
+});

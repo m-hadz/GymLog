@@ -7,6 +7,7 @@ import { HBarList, PeriodBarChart } from '../../charts/bars.jsx';
 import { EmptyState } from '../../components/ui.jsx';
 import { getExercise } from '../../lib/catalog.js';
 import { useCatalog } from '../../lib/hooks.js';
+import { state } from '../../lib/data.js';
 import { weeklySummary } from '../../lib/stats.js';
 import { mondayOf, setsByBodyPart } from './summary.js';
 import { MuscleSection } from './MuscleSection.jsx';
@@ -27,7 +28,7 @@ export function ProgressSection({ workouts }) {
   const parts = useMemo(
     () => setsByBodyPart(workouts, weeks[0].date, getExercise),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [workouts, weeks, catalogVersion],
+    [workouts, weeks, catalogVersion, state.exercises, state.exercise_prefs],
   );
 
   const bars = (key) => weeks.map((w, i) => ({

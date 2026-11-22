@@ -1,6 +1,6 @@
 # 05 · Mancuernas por mano y ejercicios unilaterales
 
-**Esfuerzo:** S · **Depende de:** base común A · **Relacionada con:** 01, 02, 04
+**Estado:** implementada en v0.0.9 · **Esfuerzo:** S · **Depende de:** base común A · **Relacionada con:** 01, 02, 04
 
 ## Problema y objetivo
 
@@ -93,6 +93,17 @@ cómo anotes el peso, las máquinas Iso-Lateral (Row y Chest Press).
 - [ ] El encabezado de la columna dice "kg c/u" o "kg por lado" según el modo.
 - [ ] Exportar a CSV de Strong produce el mismo archivo que antes para esos ejercicios.
 - [ ] El modo se sincroniza entre dispositivos.
+
+## Notas de implementación (v0.0.9)
+
+- `exercise_prefs.load_mode` (columna ya existente). `resolveLoadMode` y `modeFactor` en `src/lib/kinds.js`;
+  el ×2 se aplica en `withEffectiveLoads` sobre `vw` (peso para el volumen), así 1RM, récords de peso,
+  sugerencia y calentamiento siguen sobre lo anotado.
+- La pregunta "¿una mancuerna o el total?" es un recuadro dentro del ejercicio (no un diálogo), solo en el
+  entrenamiento en curso. "Para todas las mancuernas" guarda el modo en las mancuernas ya usadas (se
+  sincroniza) y deja el ajuste local `dumbbellMode` para las que se agreguen después.
+- Encabezado: "kg c/u" y "kg/lado" (más corto que "kg por lado" para que quepa en la columna).
+- Los ejercicios unilaterales no preguntan: se eligen en Ajustes del ejercicio.
 
 ## Pruebas
 

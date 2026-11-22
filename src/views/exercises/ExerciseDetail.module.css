@@ -171,3 +171,14 @@
     border-bottom-color: var(--app-border);
   }
 }
+
+.fixedNote {
+  margin-bottom: var(--mantine-spacing-sm);
+}
+
+.bwHint {
+  margin-bottom: var(--mantine-spacing-sm);
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-orange-light);
+  border-color: transparent;
+}

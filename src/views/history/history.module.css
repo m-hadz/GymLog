@@ -255,6 +255,15 @@ section + section > .monthHeader {
     font-weight: 700;
   }
 
+  &[data-pause] {
+    background: repeating-linear-gradient(45deg, var(--mantine-color-default-hover) 0 4px, transparent 4px 8px);
+    color: var(--mantine-color-dimmed);
+  }
+
+  &[data-past-empty] {
+    cursor: pointer;
+  }
+
   &[data-has='true'] {
     background: var(--mantine-primary-color-filled);
     color: #fff;

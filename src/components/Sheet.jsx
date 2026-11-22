@@ -48,11 +48,14 @@ function SheetBody({ render, close }) {
 
 export function SheetHost() {
   const list = useSyncExternalStore(subscribe, () => sheets);
+  // Con hojas apiladas, Escape cierra solo la de arriba
+  const top = list.findLast((s) => !s.closing)?.id;
   return list.map((s, i) => (
     <Drawer
       key={s.id}
       opened={s.opened}
       onClose={s.close}
+      closeOnEscape={s.id === top}
       position="bottom"
       size={s.size === 'full' ? '94dvh' : 'auto'}
       title={s.title}

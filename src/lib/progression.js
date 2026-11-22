@@ -27,7 +27,7 @@ const score = (s) => (s.weight ? e1rm(s.weight, s.reps) : s.reps || 0);
 export function referenceSet(sets) {
   let best = null;
   for (const s of sets || []) {
-    if (!isWorking(s) || s.type === 'D') continue;
+    if (!isWorking(s) || s.type === 'D' || !(s.reps > 0)) continue;
     if (!best || score(s) > score(best)) best = s;
   }
   return best;
@@ -50,11 +50,14 @@ export function lastSession(workouts, exId, { excludeId, before, templateId } = 
 /**
  * @returns {null | {
  *   source: 'superar'|'pausa'|'reps', ref: object, days: number,
- *   main: {weight:number|null, reps:number}, alt: {weight:number, reps:number}|null, atMax: boolean
+ *   main: {weight:number|null, reps:number}, alt: {weight:number, reps:number}|null, atMax: boolean,
+ *   reset?: {weight:number, reps:number, pct:number}|null
  * }}
+ * Con `stalled`, propone además el reinicio (feature 06): bajar `resetPct` y superar el 1RM con más reps.
  */
 export function suggest({
   workouts, exId, excludeId, before, templateId, prefs = null, increment = 1, barbell = null, now = Date.now(),
+  stalled = false, resetPct = RESET_PCT,
 }) {
   const p = prefs || {};
   const last = lastSession(workouts, exId, {
@@ -91,5 +94,66 @@ export function suggest({
   if (same && up && same.reps > repMax) { main = up; alt = same; }
   if (!main) return null;
   const atMax = max != null && ref.weight >= max - 1e-6 && main.reps > repMax;
-  return { ...base, source: 'superar', main, alt, atMax };
+  const reset = stalled ? resetTarget(ref, opts, resetPct) : null;
+  return { ...base, source: 'superar', main, alt, atMax, reset };
+}
+
+// ---- Estancamiento y reinicio (feature 06) ----
+// Calibrado con el historial real (una serie al fallo por ejercicio): ver docs/features/06.
+export const STALL_WINDOW = 6;          // sesiones por ventana
+export const STALL_MIN_SESSIONS = 12;   // dos ventanas completas
+export const STALL_GAIN = 0.01;         // las últimas 6 deben superar a las 6 anteriores en más de 1 %
+export const STALL_RECENT_DAYS = 21;    // si la última sesión es más vieja, aplica la pausa de 01
+export const STALL_SNOOZE_SESSIONS = 7; // "Ignorar por 7 sesiones"
+export const RESET_PCT = 0.1;           // bajar 10 % por defecto (ajuste: 5–15 %)
+export const RESET_MIN_PCT = 0.05;
+
+const avg = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
+
+/**
+ * ¿Está estancado el ejercicio? Usa el mejor 1RM estimado de cada sesión (o las reps máximas si la
+ * última sesión fue sin peso).
+ * @param {object[]} sessions exerciseSessions() (ascendente)
+ * @param {{now?:number, snoozedAt?:string|null}} [o] snoozedAt: started_at de la última sesión al
+ *   elegir "Ignorar por 7 sesiones"; mientras haya menos de 7 sesiones después, no se marca.
+ * @returns {null | {stalled:boolean, metric:'e1rm'|'reps', recent:number, prior:number, since:string,
+ *   scores:{date:string, value:number}[], snoozed:boolean}}
+ */
+export function stallStatus(sessions, { now = Date.now(), snoozedAt = null } = {}) {
+  const last = sessions.at(-1);
+  if (!last) return null;
+  const metric = last.bestE1rm > 0 ? 'e1rm' : 'reps';
+  const scored = sessions
+    .map((s) => ({ date: s.workout.started_at, value: metric === 'e1rm' ? s.bestE1rm : Math.max(0, ...s.working.map((x) => x.reps || 0)) }))
+    .filter((x) => x.value > 0);
+  if (scored.length < STALL_MIN_SESSIONS) return null;
+  if ((now - Date.parse(scored.at(-1).date)) / 864e5 > STALL_RECENT_DAYS) return null;
+  const recentList = scored.slice(-STALL_WINDOW);
+  const recent = avg(recentList.map((x) => x.value));
+  const prior = avg(scored.slice(-2 * STALL_WINDOW, -STALL_WINDOW).map((x) => x.value));
+  const snoozed = !!snoozedAt && scored.filter((x) => x.date > snoozedAt).length < STALL_SNOOZE_SESSIONS;
+  return {
+    stalled: recent <= prior * (1 + STALL_GAIN) && !snoozed,
+    metric, recent, prior, snoozed,
+    since: recentList[0].date,
+    scores: scored.slice(-2 * STALL_WINDOW),
+  };
+}
+
+/**
+ * Reinicio: bajar el peso de la última sesión un X % y las reps para superar su 1RM estimado.
+ * Si harían falta más de 15 reps, prueba porcentajes menores (hasta 5 %).
+ * @param {{weight:number, reps:number}} ref serie de referencia (la de la última sesión)
+ * @param {{inc:number, known?:number[], barbell?:object|null}} opts cargas posibles (loads.js)
+ * @returns {null | {weight:number, reps:number, pct:number}}
+ */
+export function resetTarget(ref, opts, pct = RESET_PCT) {
+  if (!(ref?.weight > 0) || !(ref.reps > 0)) return null;
+  const T = e1rm(ref.weight, ref.reps) * BEAT;
+  for (let p = Math.round(pct * 100); p >= Math.round(RESET_MIN_PCT * 100); p--) {
+    const w = lowerLoad(ref.weight, p / 100, opts);
+    const r = w && repsToBeat(w, T);
+    if (r && r <= MAX_REPS) return { weight: w, reps: r, pct: p / 100 };
+  }
+  return null;
 }

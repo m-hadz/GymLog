@@ -10,7 +10,8 @@ import {
 import { Page, PageHeader } from '../components/PageHeader.jsx';
 import { EmptyState, ExerciseThumb, SectionTitle, StatGrid, StatTile } from '../components/ui.jsx';
 import { confirmDialog, notify } from '../components/dialogs.jsx';
-import { useActiveWorkout, useCatalog, useData, useNow } from '../lib/hooks.js';
+import { useActiveWorkout, useAnalysis, useCatalog, useData, useNow, useStreak } from '../lib/hooks.js';
+import { ConstancyCard, streakTile } from './streak/StreakCards.jsx';
 import { remove, state, upsert } from '../lib/data.js';
 import { exerciseName, getExercise } from '../lib/catalog.js';
 import { workoutVolume } from '../lib/stats.js';
@@ -43,13 +44,7 @@ export function relativeDay(iso) {
 function weekStats(workouts) {
   const start = monday(Date.now());
   const thisWeek = workouts.filter((w) => new Date(w.started_at) >= start);
-  // Racha: semanas consecutivas (hasta la actual o la anterior) con al menos un entrenamiento
-  const weeks = new Set(workouts.map((w) => +monday(w.started_at)));
-  let streak = 0;
-  const cur = new Date(start);
-  if (!weeks.has(+cur)) cur.setDate(cur.getDate() - 7);
-  while (weeks.has(+cur)) { streak++; cur.setDate(cur.getDate() - 7); }
-  return { count: thisWeek.length, volume: thisWeek.reduce((a, w) => a + workoutVolume(w), 0), streak };
+  return { count: thisWeek.length, volume: thisWeek.reduce((a, w) => a + workoutVolume(w), 0) };
 }
 
 function Hero() {
@@ -165,7 +160,9 @@ function TemplateCard({ t, lastDone }) {
 export function TrainView() {
   const { workouts, templates } = useData();
   useCatalog();
-  const stats = useMemo(() => weekStats(workouts), [workouts]);
+  const analysis = useAnalysis();
+  const stats = useMemo(() => weekStats(analysis), [analysis]);
+  const streak = useStreak();
   const lastDone = useMemo(() => {
     const m = new Map();
     for (const w of workouts) if (w.template_id && !m.has(w.template_id)) m.set(w.template_id, w.started_at);
@@ -187,10 +184,11 @@ export function TrainView() {
       />
       <Page>
         <Hero />
+        <ConstancyCard />
         <StatGrid cols={3}>
           <StatTile label="Esta semana" value={stats.count} hint={stats.count === 1 ? 'entrenamiento' : 'entrenamientos'} icon={IconCalendarWeek} />
           <StatTile label="Volumen" value={fmtVolume(stats.volume)} hint="esta semana" icon={IconWeight} color="grape" />
-          <StatTile label="Racha" value={stats.streak} hint={stats.streak === 1 ? 'semana' : 'semanas'} icon={IconFlame} color="orange" />
+          <StatTile label="Racha" {...streakTile(streak)} icon={IconFlame} color="orange" data-testid="train-streak" />
         </StatGrid>
 
         <SectionTitle>Mis plantillas ({templates.length})</SectionTitle>

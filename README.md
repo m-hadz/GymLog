@@ -1,4 +1,4 @@
-# GymLog — v0.0.8
+# GymLog — v0.0.9
 
 Registro de entrenamientos personal, inspirado en el flujo de Strong y escrito desde cero.
 Frontend en React + [Mantine](https://mantine.dev) (compilado con Vite, instalable como PWA),
@@ -26,7 +26,46 @@ funciones serverless en Vercel y Postgres gratuito en Supabase.
 - **Tus datos:** importar el CSV de Strong (sin duplicar si lo reimportas; convierte libras a
   kg), exportar en formato Strong, descargar y restaurar un respaldo JSON (se combina, no borra).
 
-### Nuevo en v0.0.8
+### Nuevo en v0.0.9
+- **Tipos de ejercicio** ([feature 04](docs/features/04-pendientes-validados.md)): en Ajustes del
+  ejercicio, *peso y reps*, *peso corporal*, *con lastre* (anotas lo agregado), *asistido* (anotas la
+  asistencia) o *por tiempo*. Volumen, 1RM y récords usan la carga real con tu peso corporal (ajuste
+  "Contar el peso corporal en el volumen" en Perfil → Ajustes → Cuerpo). Se ve "PC + 10 kg × 8".
+- **Series por tiempo** con cronómetro en la fila: cuenta regresiva con sonido si hay objetivo, hacia
+  adelante si no; sobrevive a bloquear la pantalla. Récord y gráficos de tiempo.
+- **Nota fija por ejercicio** (asiento, agarre, link a un video), arriba del ejercicio en todos los
+  entrenamientos. Menú del ejercicio → "Nota fija", o desde la ficha.
+- **Mancuernas por mano y unilaterales** ([feature 05](docs/features/05-mancuernas-por-mano.md)): en
+  Ajustes del ejercicio, la carga se anota *total*, *por mano* o *unilateral*; en los dos últimos el
+  volumen cuenta el doble y el 1RM queda sobre lo anotado. La primera vez que usas una mancuerna, la app
+  pregunta una sola vez (con opción "para todas las mancuernas"). Columna "kg c/u" / "kg/lado".
+- **Estancamiento y reinicio** ([feature 06](docs/features/06-estancamiento-reinicio.md)): un ejercicio está
+  estancado si el 1RM estimado de sus últimas 6 sesiones no supera en más de 1 % al de las 6 anteriores.
+  Etiqueta "Estancado" en el entrenamiento, tarjeta "Estancados" en el perfil y en la ficha. Propone un
+  **reinicio** (−10 % de peso y las reps para superar tu 1RM, ajustable 5/10/15 %) como opción principal;
+  "Ignorar por 7 sesiones".
+- **Resumen mensual y anual** ([feature 07](docs/features/07-resumen-mensual-anual.md)): `#/report/2026-11`
+  y `#/report/2026`. Totales contra el periodo anterior, días entrenados, constancia, récords, ejercicios
+  más hechos, progreso por ejercicio, series por músculo, mejor semana y estancados al cierre; el anual
+  suma meses, racha más larga, mejora de los más hechos, ejercicios nuevos y "como levantar N autos".
+  Entrada desde Perfil → Progreso y desde cada mes del Historial. Botón "Compartir" con vista previa de
+  una imagen del resumen (se crea en el teléfono) para compartirla o descargarla.
+- **Regiones por músculo y grupo editable** ([feature 08](docs/features/08-mapa-muscular.md), completa
+  la primera versión de v0.0.7): cada ejercicio puede tener 1–2 regiones (pecho superior, deltoide
+  lateral, braquial…) y la hoja de cada músculo muestra las series por región, marca "sin trabajar esta
+  semana" y lista los ejercicios sin región para asignarla en 2 toques. El grupo de un ejercicio del
+  catálogo ahora se puede corregir (ficha → Músculo). Mini mapa "Músculos trabajados" en el resumen de
+  cada entrenamiento.
+- **Meta de constancia y racha reparable** ([feature 09](docs/features/09-constancia-racha.md)): modos
+  "Sin meta" (semanas con al menos uno, como antes), "Cada N días" (día por medio con tolerancia: la
+  racha cuenta entrenamientos seguidos) y "N por semana". Tarjeta en Entrenar ("Hoy toca", "Mañana toca",
+  "Último día para no cortar la racha"), franja de 30 días y mejor racha en el Perfil, pausas de hasta 14
+  días (una cada 6 semanas) y registrar un entrenamiento en un día pasado desde el Calendario (repara la
+  racha). Un solo cálculo (`src/lib/streak.js`) para Entrenar, Calendario, Perfil y el resumen.
+- Tabla nueva `user_settings` (meta y pausas sincronizadas): correr su bloque de `schema.sql` en
+  Supabase. Mientras no exista, la app funciona y la meta queda como cambio pendiente de sincronizar.
+
+### v0.0.8
 - **Peso corporal y medidas** ([feature 03](docs/features/03-peso-corporal-medidas.md)): Perfil →
   Cuerpo muestra el **peso de tendencia** (media móvil ponderada por días, no salta con el agua y la
   comida), el último registro y el ritmo en kg/semana. Pantalla `#/body` con gráfico de registros y
@@ -215,7 +254,14 @@ src/
     loads.js          Cargas posibles: mínimo aumento, pesos conocidos, tope de la máquina
     warmup.js         Series de calentamiento por porcentaje del peso de trabajo
     muscles.js        Estímulo directo por grupo muscular (mapa del cuerpo)
+    regions.js        Regiones dentro de cada grupo muscular (feature 08)
     body.js           Peso de tendencia, ritmo, peso a una fecha, grasa estimada
+    kinds.js          Tipos de ejercicio, carga efectiva con peso corporal, tiempo mm:ss
+    effective.js      Entrenamientos con carga efectiva (cacheado) para mostrar y analizar
+    set-timer.js      Cronómetro de series por tiempo (guarda la hora de inicio)
+    stalls.js         Ejercicios estancados (feature 06), cacheado
+    report.js         Resumen mensual y anual (feature 07)
+    streak.js         Meta de constancia y racha (feature 09)
     strong-csv.js     Importar/exportar CSV de Strong
     rest-timer.js, plates.js, format.js, router.js, api.js
   components/         Layout (navegación, descanso), encabezados, hojas, diálogos, selector de ejercicios
@@ -223,7 +269,7 @@ src/
   views/              Pantallas: Entrenar, editor, Historial, Ejercicios, Perfil, Lectura
 ```
 
-**API:** `GET /api/bootstrap` (todo), `GET|POST|DELETE /api/{workouts|templates|exercises|exercise_prefs|body_metrics}`
+**API:** `GET /api/bootstrap` (todo), `GET|POST|DELETE /api/{workouts|templates|exercises|exercise_prefs|body_metrics|user_settings}`
 (`POST` acepta un objeto o una lista y hace upsert por `id`; `DELETE ?id=`), `GET /api/health`,
 `GET /api/summary` (último resumen; `?id=` uno concreto; `?list=1` los últimos 20 sin el texto) y
 `GET|POST /api/summary-refresh` (cron con `Authorization: Bearer $CRON_SECRET`, o `x-app-key`; `?force=1`).
@@ -232,8 +278,6 @@ Las estadísticas se calculan en el cliente: con miles de entrenamientos sigue s
 y el backend se mantiene mínimo.
 
 ## Pendiente (ideas)
-- Ejercicios con lastre o asistidos (carga real, usa el peso corporal).
 - Rachas y regiones dentro de cada músculo (ver `docs/features/`).
-- Ejercicios por tiempo con cronómetro; superseries.
-- Nota fija por ejercicio (asiento, agarre) y unir ejercicios duplicados.
+- Unir ejercicios duplicados.
 - Buscador en español para el catálogo.

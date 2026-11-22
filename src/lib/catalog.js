@@ -113,17 +113,40 @@ function fromCustom(row) {
   };
 }
 
-let allCache = { custom: null, catalog: null, list: [] };
+// Grupo elegido por el usuario (exercise_prefs.primary_muscles[0], feature 08): sirve sobre todo
+// para corregir el de un ejercicio del catálogo, que no se puede editar.
+let partCache = { src: null, map: new Map() };
+export function partOverride(id) {
+  const prefs = state.exercise_prefs || [];
+  if (partCache.src !== prefs) {
+    const map = new Map();
+    for (const p of prefs) {
+      const g = p.primary_muscles?.[0];
+      if (g && BODY_PARTS.includes(g)) map.set(p.id, g);
+    }
+    partCache = { src: prefs, map };
+  }
+  return partCache.map.get(id) || null;
+}
+const withPart = (ex) => {
+  const p = ex && partOverride(ex.id);
+  return p && p !== ex.bodyPart ? { ...ex, bodyPart: p, defaultBodyPart: ex.bodyPart } : ex;
+};
+
+let allCache = { custom: null, catalog: null, prefs: null, list: [] };
 export function allExercises() {
-  if (allCache.custom !== state.exercises || allCache.catalog !== catalog) {
-    allCache = { custom: state.exercises, catalog, list: [...state.exercises.map(fromCustom), ...catalog] };
+  if (allCache.custom !== state.exercises || allCache.catalog !== catalog || allCache.prefs !== state.exercise_prefs) {
+    allCache = {
+      custom: state.exercises, catalog, prefs: state.exercise_prefs,
+      list: [...state.exercises.map(fromCustom), ...catalog].map(withPart),
+    };
   }
   return allCache.list;
 }
 
 export function getExercise(id) {
   const row = state.exercises.find((e) => e.id === id);
-  return row ? fromCustom(row) : byId.get(id) || null;
+  return withPart(row ? fromCustom(row) : byId.get(id) || null);
 }
 
 export const exerciseName = (id, fallback = '¿?') => getExercise(id)?.name || fallback;

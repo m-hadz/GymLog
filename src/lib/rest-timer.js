@@ -30,7 +30,7 @@ const write = (end, total) => {
   emit();
 };
 
-function beep() {
+export function beep() {
   if (getSettings().sound !== false) {
     try {
       audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
@@ -56,10 +56,14 @@ function check() {
   }
 }
 
+// Crear el AudioContext durante el toque del usuario (requisito de iOS/Chrome)
+export function unlockAudio() {
+  try { audioCtx ||= new (window.AudioContext || window.webkitAudioContext)(); } catch { /* */ }
+}
+
 export function startRest(seconds) {
   if (!seconds || seconds <= 0) return;
-  // Crear el AudioContext durante el toque del usuario (requisito de iOS/Chrome)
-  try { audioCtx ||= new (window.AudioContext || window.webkitAudioContext)(); } catch { /* */ }
+  unlockAudio();
   write(Date.now() + seconds * 1000, seconds * 1000);
   ensureTicking();
 }

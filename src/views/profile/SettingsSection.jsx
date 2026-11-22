@@ -5,17 +5,29 @@ import {
 } from '@mantine/core';
 import {
   IconBell, IconBolt, IconCircleCheck, IconCloudOff, IconDeviceMobile, IconHourglass, IconKey, IconMoonStars,
-  IconRefresh, IconTrendingUp, IconWeight,
+  IconFlame, IconRefresh, IconTrendingDown, IconTrendingUp, IconWeight,
 } from '@tabler/icons-react';
+import { goalLabel, openGoalSheet } from '../streak/GoalSheet.jsx';
 import { notify } from '../../components/dialogs.jsx';
 import { api, getKey, setKey } from '../../lib/api.js';
 import { catalogSize, loadCatalog } from '../../lib/catalog.js';
-import { refresh, saveSettings } from '../../lib/data.js';
+import { refresh, saveSettings, syncedSettings } from '../../lib/data.js';
 import { fmtNum, num } from '../../lib/format.js';
-import { useSettings } from '../../lib/hooks.js';
+import { useData, useSettings } from '../../lib/hooks.js';
 import { SettingsGroup, SettingsRow } from './SettingsList.jsx';
 import { WarmupSettings } from './WarmupSettings.jsx';
 import { BodySettings } from './BodySettings.jsx';
+
+// Meta de constancia (feature 09): sincronizada, se edita en una hoja
+function GoalRow() {
+  useData();
+  return (
+    <SettingsRow
+      icon={IconFlame} color="orange" label="Meta de constancia" description={goalLabel(syncedSettings().goal)}
+      onClick={openGoalSheet} data-testid="goal-row"
+    />
+  );
+}
 
 const save = (patch) => { saveSettings(patch); notify.success('Guardado'); };
 const platesText = (plates) => plates.map((p) => fmtNum(p, 2)).join('; ');
@@ -106,7 +118,18 @@ export function SettingsSection() {
             />
           )}
         />
+        <GoalRow />
         <SettingsRow icon={IconTrendingUp} color="teal" label="Mostrar objetivo para superar" description="Peso y reps para superar tu 1RM estimado de la vez anterior" right={toggle('suggest', 'Mostrar objetivo para superar')} />
+        <SettingsRow
+          icon={IconTrendingDown} color="orange" label="Reinicio al estancarse"
+          description="Cuánto baja el peso, para superar tu 1RM con más reps"
+          right={(
+            <SegmentedControl
+              size="xs" radius="md" value={String(settings.resetPct ?? 10)} onChange={(v) => save({ resetPct: Number(v) })}
+              data={['5', '10', '15'].map((v) => ({ value: v, label: `${v} %` }))} aria-label="Reinicio al estancarse" data-testid="reset-pct"
+            />
+          )}
+        />
         <SettingsRow icon={IconBolt} color="yellow" label="Registrar RPE por serie" description="Esfuerzo percibido del 6 al 10" right={toggle('rpe', 'Registrar RPE por serie')} />
         <SettingsRow icon={IconDeviceMobile} color="cyan" label="Pantalla encendida durante el entrenamiento" right={toggle('wake', 'Pantalla encendida durante el entrenamiento')} />
         <SettingsRow icon={IconBell} color="pink" label="Sonido al terminar el descanso" right={toggle('sound', 'Sonido al terminar el descanso')} />

@@ -407,3 +407,64 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/* Series por tiempo (feature 04 C) */
+.num[data-running] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mantine-color-brand-light-color);
+  background: var(--mantine-color-brand-light);
+}
+
+.num[data-running='done'] {
+  color: var(--mantine-color-teal-light-color);
+  background: var(--mantine-color-teal-light);
+}
+
+.timerBtn {
+  width: 36px;
+  height: 38px;
+  border-radius: var(--mantine-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--app-surface-2);
+  color: var(--mantine-color-brand-light-color);
+
+  &[data-on] {
+    background: var(--mantine-color-red-light);
+    color: var(--mantine-color-red-light-color);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+}
+
+.fixedNote {
+  margin: 0 12px 8px;
+}
+
+/* Pregunta única en mancuernas (feature 05) */
+.ask {
+  background: var(--mantine-color-brand-light);
+}
+
+.ask .goalIcon {
+  color: var(--mantine-color-brand-light-color);
+}
+
+/* Etiqueta "Estancado" (feature 06) */
+.stallTag {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--mantine-color-orange-light-color);
+  background: var(--mantine-color-orange-light);
+  cursor: pointer;
+}

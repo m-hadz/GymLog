@@ -3,7 +3,7 @@
 // Variables: SHOTS=/ruta para guardar capturas (por defecto, una carpeta temporal).
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
@@ -194,6 +194,7 @@ try {
   await visible(text('Contra la última vez'));
   assert.match(await tid('summary-stats').innerText(), /vs anterior/);
   await visible(text('🏆 3 récords')); // 1RM + PESO + VOL.
+  await visible(tid('workout-muscles').getByTestId('workout-muscle').first()); // mini mapa (feature 08)
   await shot('summary');
   step('plantilla: feedback, récord, discos, RPE, deshacer, resumen');
 
@@ -327,6 +328,32 @@ try {
   await tid('muscle-detail').waitFor({ state: 'detached' });
   step('mapa del cuerpo y estímulo directo por músculo');
 
+  // 10b2. Regiones y grupo por ejercicio (feature 08): asignar "Vastos" a la sentadilla en 2 toques
+  await quad.click();
+  await visible(tid('muscle-regions'));
+  const assign = tid('region-assign').first();
+  const squatName = (await assign.innerText()).split('\n')[0];
+  await assign.click();
+  await tid('assign-region-cuadriceps.vastos').click();
+  await page.keyboard.press('Escape');
+  await tid('muscle-assign').waitFor({ state: 'detached' });
+  const vastos = tid('region-row').filter({ hasText: 'Vastos' });
+  assert.match(await vastos.innerText(), /\/sem/);
+  assert.match(await tid('region-row').filter({ hasText: 'Recto femoral' }).innerText(), /—/);
+  await shot('10b2-regiones');
+  await page.keyboard.press('Escape');
+  await tid('muscle-detail').waitFor({ state: 'detached' });
+  // Cambiar el grupo: sus series pasan a Glúteos; la región de cuádriceps se descarta
+  const glutes = () => tid('muscle-row').filter({ hasText: 'Glúteos' });
+  assert.match(await glutes().innerText(), /0\/sem/);
+  await tid('muscle-row').filter({ hasText: 'Cuádriceps' }).click();
+  await tid('muscle-detail').getByText(squatName, { exact: true }).click();
+  await tid('assign-group-Glúteos').click();
+  await page.goBack();
+  await tab('profile');
+  assert.doesNotMatch(await glutes().innerText(), /^Glúteos\s*0\/sem/);
+  step('regiones: asignar en 2 toques, series por región, cambiar el grupo');
+
   // 10c. Peso corporal (feature 03): dos registros, tarjeta, mismo día reemplaza, gráfico y borrar
   const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const today = ymd(new Date());
@@ -397,6 +424,239 @@ try {
   const lbs = Object.values(db().workouts).find((w) => w.name === 'Lbs test');
   assert.equal(lbs.exercises[0].sets[0].weight, 45.4);
   step('Strong en libras → kg');
+
+  // 12b. Tipos de ejercicio (feature 04): dominada con lastre, plancha por tiempo y nota fija
+  await tab('train');
+  await tid('start-empty').click();
+  await tid('add-exercises').click();
+  await tid('picker').getByTestId('exercise-search').fill('pullups');
+  await tid('picker').getByTestId('exercise-row').filter({ hasText: 'Pullups' }).first().click();
+  await tid('picker').getByTestId('exercise-search').fill('plank');
+  await tid('picker').getByTestId('exercise-row').filter({ hasText: 'Plank' }).first().click();
+  await tid('picker-add').click();
+  await expectCount(cards(), 2);
+  const pull = cards().nth(0);
+  const plank = cards().nth(1);
+  // Peso corporal por defecto: sin columna de peso
+  await expectCount(pull.getByTestId('set-weight'), 0);
+  // Cambiar a "con lastre": columna "+kg"
+  await pull.getByTestId('exercise-menu').click();
+  await tid('prefs-open').click();
+  await tid('prefs-kind-lastre').click();
+  await tid('prefs-save').click();
+  await visible(pull.getByText('+kg', { exact: true }));
+  await pull.getByTestId('set-weight').first().fill('10');
+  await pull.getByTestId('set-reps').first().fill('8');
+  await pull.getByTestId('set-check').first().click();
+  // Nota fija con link
+  await pull.getByTestId('exercise-menu').click();
+  await tid('fixed-note-menu').click();
+  await tid('fixed-note-input').fill('Agarre ancho https://example.com/tecnica');
+  await tid('fixed-note-save').click();
+  await visible(pull.getByTestId('fixed-note'));
+  assert.equal(await pull.getByTestId('fixed-note').locator('a').getAttribute('target'), '_blank');
+  // Plancha por tiempo: cuenta regresiva de 2 s que sobrevive a recargar
+  await plank.getByTestId('exercise-menu').click();
+  await tid('prefs-open').click();
+  await tid('prefs-kind-tiempo').click();
+  await tid('prefs-save').click();
+  await visible(plank.getByTestId('set-time'));
+  await plank.getByTestId('set-time').first().fill('0:02');
+  await plank.getByTestId('set-timer').first().click();
+  await visible(plank.getByTestId('set-timer-clock'));
+  await page.reload();
+  await expectCount(cards(), 2);
+  await visible(cards().nth(1).getByTestId('set-timer-clock'));
+  await page.waitForTimeout(2300);
+  assert.equal(await cards().nth(1).getByTestId('set-timer-clock').getAttribute('data-running'), 'done');
+  await cards().nth(1).getByTestId('set-check').first().click();
+  // Segunda serie sin objetivo: cuenta hacia adelante y ■ deja el tiempo escrito
+  await cards().nth(1).getByTestId('add-set').click();
+  await cards().nth(1).getByTestId('set-time').nth(1).fill('');
+  await cards().nth(1).getByTestId('set-timer').nth(1).click();
+  await page.waitForTimeout(1300);
+  await cards().nth(1).getByTestId('set-timer').nth(1).click();
+  await expectValue(cards().nth(1).getByTestId('set-time').nth(1), '0:01');
+  await cards().nth(1).getByTestId('set-check').nth(1).click();
+  await shot('12b-tipos');
+  await tid('finish-workout').click();
+  await confirmUntil(text('¡Entrenamiento guardado!'));
+  // Volumen con peso corporal: (79,9 + 10) × 8 = 719 kg; la plancha no suma
+  await visible(tid('summary-stats').getByText('719 kg'));
+  await visible(text('PC + 10 kg × 8'));
+  await visible(text('0:02', true));
+  await page.waitForTimeout(500);
+  const typed = Object.values(db().workouts).find((w) => w.exercises.some((e) => e.exercise_id === 'Plank'));
+  assert.equal(typed.exercises[0].sets[0].weight, 10); // se guarda lo anotado
+  assert.deepEqual(typed.exercises[1].sets.map((x) => x.seconds), [2, 1]);
+  assert.equal(db().exercise_prefs.Pullups.kind, 'lastre');
+  assert.equal(db().exercise_prefs.Pullups.note, 'Agarre ancho https://example.com/tecnica');
+  // La nota fija aparece al empezar otro entrenamiento con el ejercicio
+  await tid('workout-menu').or(page.getByRole('button', { name: 'Más opciones' })).first().click();
+  await menuItem('Repetir entrenamiento').click();
+  await visible(cards().first().getByTestId('fixed-note'));
+  await tid('cancel-workout').click();
+  await tid('confirm-ok').click();
+  step('tipos: lastre (volumen con PC), plancha cronometrada, nota fija con link');
+
+  // 12c. Mancuernas por mano (feature 05): pregunta única, "kg c/u" y volumen ×2
+  await tab('train');
+  await tid('start-empty').click();
+  await tid('add-exercises').click();
+  await tid('picker').getByTestId('exercise-search').fill('bicep curl (d');
+  await tid('picker').getByTestId('exercise-row').filter({ hasText: 'Bicep Curl (Dumbbell)' }).first().click();
+  await tid('picker-add').click();
+  const db1 = cards().first();
+  await visible(db1.getByTestId('dumbbell-ask'));
+  assert.equal((await db1.getByTestId('weight-head').innerText()).toLowerCase(), 'kg');
+  await shot('12c-pregunta');
+  await db1.getByTestId('dumbbell-all').click();
+  await db1.getByTestId('dumbbell-one').click();
+  await expectCount(db1.getByTestId('dumbbell-ask'), 0);
+  assert.equal((await db1.getByTestId('weight-head').innerText()).toLowerCase(), 'kg c/u');
+  await db1.getByTestId('set-weight').first().fill('12');
+  await db1.getByTestId('set-reps').first().fill('10');
+  await db1.getByTestId('set-check').first().click();
+  await shot('12c-mancuerna');
+  await tid('finish-workout').click();
+  await confirmUntil(text('¡Entrenamiento guardado!'));
+  await visible(tid('summary-stats').getByText('240 kg')); // 2 × 12 kg × 10
+  await page.waitForTimeout(500);
+  const curlRow = Object.values(db().exercises).find((e) => e.name === 'Bicep Curl (Dumbbell)');
+  const curlPrefs = db().exercise_prefs[curlRow.id];
+  assert.equal(curlPrefs.load_mode, 'por_mano');
+  // Cambiar el modo avisa cuántas sesiones se recalculan
+  await page.locator('a[href^="#/exercise/"]').filter({ hasText: 'Bicep Curl (Dumbbell)' }).first().click();
+  await visible(tid('mode-badge'));
+  await page.getByRole('tab', { name: 'Descripción' }).click();
+  await tid('prefs-mode-total').click();
+  await tid('prefs-save').click();
+  await visible(text(/Esto cambia el volumen de tus \d+ sesiones anteriores \(se reduce a la mitad\)/));
+  await tid('confirm-ok').click();
+  await expectCount(tid('mode-badge'), 0);
+  await page.waitForTimeout(500);
+  assert.equal(db().exercise_prefs[curlPrefs.id].load_mode, 'total');
+  step('mancuernas: pregunta única, kg c/u, volumen ×2, aviso al cambiar el modo');
+
+  // 12d. Estancamiento (feature 06): 12 sesiones planas de Chest Press 63 × 7 en los últimos 24 días
+  const pad = (n) => String(n).padStart(2, '0');
+  const stamp = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} 18:00:00`;
+  const rows = ['Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Weight Unit,Reps,Distance,Seconds,Notes,Workout Notes,RPE'];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(Date.now() - (2 + 2 * i) * 864e5);
+    rows.push(`${stamp(d)},"Pecho plano",40m,"Chest Press (Machine)",1,57,kg,9,0,0,"","",`);
+    rows.push(`${stamp(d)},"Pecho plano",40m,"Chest Press (Machine)",2,63,kg,7,0,0,"","",`);
+  }
+  const stallCsv = join(TMP, 'stall.csv');
+  writeFileSync(stallCsv, rows.join('\n'));
+  await tab('profile');
+  await page.setInputFiles('input[accept*=csv]', stallCsv);
+  await confirmUntil(text('Importados'));
+  await visible(tid('stalled-row').filter({ hasText: 'Chest Press (Machine)' }));
+  // En el entrenamiento: etiqueta, reinicio como opción principal (63 × 7 con pesos 57 y 63 → 57 × 10)
+  await tab('train');
+  await tid('start-empty').click();
+  await tid('add-exercises').click();
+  await tid('picker').getByTestId('exercise-search').fill('chest press (m');
+  await tid('picker').getByTestId('exercise-row').filter({ hasText: 'Chest Press (Machine)' }).first().click();
+  await tid('picker-add').click();
+  const cp = cards().first();
+  await visible(cp.getByTestId('stall-tag'));
+  assert.equal((await cp.getByTestId('goal-main').innerText()).trim(), '57 × 10');
+  assert.equal(await cp.getByTestId('goal-line').getAttribute('data-source'), 'reinicio');
+  await visible(cp.getByTestId('goal-alt'));
+  await cp.getByTestId('stall-tag').click();
+  await visible(tid('stall-sheet').getByText('Reinicio: 57 × 10.'));
+  await shot('12d-estancado');
+  await tid('stall-use-reset').click();
+  await cp.getByTestId('set-check').first().click(); // el ✓ guarda el reinicio
+  await expectValue(cp.getByTestId('set-weight').first(), '57');
+  await expectValue(cp.getByTestId('set-reps').first(), '10');
+  await expectCount(cp.locator('[data-testid=set-row][data-fb]'), 1);
+  // Ignorar por 7 sesiones: la etiqueta desaparece y se guarda en el servidor
+  await cp.getByTestId('stall-tag').click();
+  await tid('stall-snooze').click();
+  await expectCount(cp.getByTestId('stall-tag'), 0);
+  await page.waitForTimeout(500);
+  assert.ok(Object.values(db().exercise_prefs).some((p) => p.stall_snooze_until));
+  await tid('cancel-workout').click();
+  await tid('confirm-ok').click();
+  step('estancamiento: tarjeta del perfil, etiqueta, reinicio 57 × 10 con ✓, ignorar por 7 sesiones');
+
+  // 12f. Constancia (feature 09): meta día por medio, misma racha en Entrenar / Calendario / Perfil,
+  // registrar un entrenamiento pasado desde el calendario, pausa y sincronización
+  const expectUntil = async (fn, what) => {
+    for (let i = 0; i < 40; i++) { if (fn()) return; await page.waitForTimeout(150); }
+    throw new Error(`No se cumplió: ${what}`);
+  };
+  await tab('profile');
+  await tid('goal-row').click();
+  await tid('goal-mode').getByText('Cada N días').click();
+  await visible(tid('goal-preview').getByText(/tu racha sería de/));
+  await tid('goal-save').click();
+  await tid('goal-sheet').waitFor({ state: 'detached' });
+  await expectUntil(() => db().user_settings?.me?.data?.goal?.mode === 'cadencia', 'meta sincronizada');
+  const streakOf = async (id) => (await tid(id).innerText()).match(/\d+/)[0];
+  const profileStreak = await streakOf('profile-streak');
+  await visible(tid('streak-card'));
+  await tab('train');
+  await visible(tid('constancy-due'));
+  await tid('constancy-card').screenshot({ path: join(SHOTS, '12f-entrenar.png') });
+  assert.equal(await streakOf('train-streak'), profileStreak);
+  await tab('history');
+  await tid('calendar-link').click();
+  assert.equal(await streakOf('calendar-streak'), profileStreak);
+  const before = count(db().workouts);
+  const empty = page.locator('[data-testid=cal-day][data-past-empty]').first();
+  await empty.click();
+  await tid('register-empty').click();
+  await visible(text('Registrar entrenamiento'));
+  await tid('add-exercises').click();
+  await tid('picker').getByTestId('exercise-search').fill('squat');
+  await tid('picker').getByTestId('exercise-row').filter({ hasText: 'Barbell Squat' }).first().click();
+  await tid('picker-add').click();
+  await cards().nth(0).getByTestId('set-weight').first().fill('50');
+  await cards().nth(0).getByTestId('set-reps').first().fill('8');
+  await tid('editor-save').click();
+  await visible(tid('celebrate-streak'));
+  await expectUntil(() => count(db().workouts) === before + 1, 'entrenamiento pasado guardado');
+  const saved = Object.values(db().workouts).sort((a, b) => (a.started_at < b.started_at ? 1 : -1));
+  assert.ok(saved.some((w) => new Date(w.started_at).getHours() === 18 && w.exercises[0]?.sets[0]?.reps === 8));
+  await shot('12f-constancia');
+  // Pausa: se agrega y se sincroniza
+  await tab('profile');
+  await tid('streak-card').screenshot({ path: join(SHOTS, '12f-perfil.png') });
+  await tid('goal-open').click();
+  await tid('pause-add').click();
+  await visible(tid('pause-row'));
+  await expectUntil(() => db().user_settings?.me?.data?.pauses?.length === 1, 'pausa sincronizada');
+  await page.keyboard.press('Escape');
+  await tid('goal-sheet').waitFor({ state: 'detached' });
+  step('constancia: meta día por medio, misma racha en 3 lugares, registrar día pasado, pausa');
+
+  // 12e. Resumen mensual y anual (feature 07)
+  await tab('history');
+  await tid('month-report').last().click(); // el mes más antiguo del historial
+  for (const id of ['report-totals', 'report-calendar', 'report-constancy', 'report-records', 'report-top', 'report-muscles']) {
+    await visible(tid(id));
+  }
+  await visible(tid('report-totals').getByText('Primer periodo registrado: sin comparación.'));
+  await tid('report-next').click();
+  await visible(tid('report-totals').getByText(/^Contra el mes anterior/));
+  await shot('12e-resumen');
+  await tid('report-share').click();
+  await visible(tid('share-preview'));
+  const [shareDl] = await Promise.all([page.waitForEvent('download'), tid('share-download').click()]);
+  if (!/^gymlog-resumen-\d{4}-\d{2}\.png$/.test(shareDl.suggestedFilename())) throw new Error(`nombre de la imagen: ${shareDl.suggestedFilename()}`);
+  await shot('12e-compartir');
+  await page.keyboard.press('Escape');
+  await tid('share-sheet').waitFor({ state: 'hidden' });
+  await tid('report-kind').getByText('Año').click();
+  await visible(tid('report-cars'));
+  await visible(tid('report-new'));
+  await tab('profile');
+  await visible(tid('report-entry'));
+  step('resumen: mes con secciones, primer mes, siguiente mes con comparación, compartir imagen, año');
 
   // 13. Lectura del día: estado vacío y error claro si falta configurar el canal
   await tab('reading');

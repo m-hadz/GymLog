@@ -1,14 +1,43 @@
 // Hooks de React sobre los stores de lib/ (useSyncExternalStore).
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { state, dataChannel, activeChannel, settingsChannel, getActive, getSettings } from './data.js';
 import { catalogChannel } from './catalog.js';
 import { restChannel, getRest } from './rest-timer.js';
+import { analysisWorkouts } from './effective.js';
+import { stallMap } from './stalls.js';
+import { streakStats } from './streak.js';
+import { syncedSettings } from './data.js';
 
 // Datos sincronizados. Devuelve `state` (workouts, templates, exercises, syncError…).
 // Las listas cambian de identidad en cada cambio, así sirven como dependencias de useMemo.
 export function useData() {
   useSyncExternalStore(dataChannel.subscribe, dataChannel.version);
   return state;
+}
+
+// Entrenamientos con la carga efectiva de peso corporal/lastre/asistido (solo para mostrar y analizar).
+export function useAnalysis() {
+  useData();
+  useCatalog();
+  useSettings();
+  return analysisWorkouts();
+}
+
+// Estancamiento por ejercicio (feature 06)
+export function useStalls() {
+  useAnalysis();
+  return stallMap();
+}
+
+// Racha y constancia (feature 09) con la meta y las pausas sincronizadas. Un único cálculo para
+// Entrenar, Calendario y Perfil.
+export function useStreak() {
+  const { workouts, user_settings: us } = useData();
+  const day = new Date().toDateString();
+  return useMemo(() => {
+    const { goal, pauses } = syncedSettings();
+    return streakStats(workouts, goal, pauses || [], new Date());
+  }, [workouts, us, day]);
 }
 
 // Re-renderiza cuando el catálogo de ejercicios termina de cargar.

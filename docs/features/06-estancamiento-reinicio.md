@@ -1,6 +1,6 @@
 # 06 · Estancamiento y reinicio (menos peso, más reps, mismo esfuerzo)
 
-**Esfuerzo:** S · **Depende de:** 01 (usa su cálculo de "superar") y base común B
+**Estado:** implementada en v0.0.9 · **Esfuerzo:** S · **Depende de:** 01 (usa su cálculo de "superar") y base común B
 · **Relacionada con:** 10 (reemplazar ejercicio)
 
 ## Problema y objetivo
@@ -108,6 +108,21 @@ Para cada ejercicio con peso, con sus sesiones ordenadas (mejor 1RM estimado de 
 - [ ] "Ignorar por 7 sesiones" oculta la etiqueta de ese ejercicio durante 7 sesiones y se sincroniza.
 - [ ] La tarjeta "Estancados" del perfil lista los mismos ejercicios que las etiquetas.
 - [ ] El porcentaje del reinicio se puede cambiar en Ajustes (5–15 %).
+
+## Notas de implementación (v0.0.9)
+
+- `stallStatus` y `resetTarget` en `src/lib/progression.js` (constantes `STALL_*` y `RESET_*` al inicio de
+  esa sección); `suggest({ stalled, resetPct })` agrega `reset`. `src/lib/stalls.js` calcula el estado de
+  todos los ejercicios sobre la carga efectiva (04/05), cacheado; hook `useStalls()`.
+- Línea del objetivo con tres opciones (reinicio, principal, alternativa); la elegida se guarda en
+  `exercises[].goal_pick` (reemplaza a `goal_alt`, que se sigue leyendo). El ✓ guarda `target.source = 'reinicio'`.
+- "Ignorar por 7 sesiones" guarda en `stall_snooze_until` el `started_at` de la última sesión; vuelve a
+  evaluarse después de 7 sesiones más.
+- El calentamiento automático de una plantilla usa el peso del reinicio si el ejercicio está estancado.
+- "Probar otro ejercicio" queda para la feature 10 (reemplazar ejercicio), que aún no existe.
+- Con el historial real al 21 nov 2026 marca 6: Chest Fly, Chest Press (Machine), Lat Pulldown (Cable),
+  Leg Extension (Machine), Reverse Curl (Barbell) y Unilateral Leg Extension. Shoulder Press (Machine) y
+  Lat Pulldown (Machine) no se hacen desde el 14 oct (más de 21 días): aplica la pausa y no se evalúan.
 
 ## Pruebas
 

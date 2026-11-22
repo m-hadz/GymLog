@@ -1,21 +1,27 @@
 // Tarjeta de un ejercicio dentro del editor: encabezado, menú y tabla de series.
 import { lazy, memo, Suspense, useEffect, useMemo, useState } from 'react';
 import {
-  ActionIcon, Box, Button, Card, Center, Group, Loader, Menu, Text, Textarea, UnstyledButton,
+  ActionIcon, Box, Button, Card, Center, Checkbox, Group, Loader, Menu, Text, Textarea, UnstyledButton,
 } from '@mantine/core';
 import {
-  IconAdjustments, IconArrowDown, IconArrowUp, IconCheck, IconClockHour4, IconDots, IconFlame, IconNote, IconPlus,
+  IconAdjustments, IconArrowDown, IconArrowUp, IconCheck, IconClockHour4, IconDots, IconFlame, IconNote, IconPin, IconPlus,
   IconRefresh, IconTrash, IconTrendingUp, IconWeight,
 } from '@tabler/icons-react';
 import { ExerciseThumb } from '../../components/ui.jsx';
 import { confirmDialog, notify, promptDialog } from '../../components/dialogs.jsx';
 import { openSheet } from '../../components/Sheet.jsx';
-import { useData } from '../../lib/hooks.js';
+import { useData, useStalls } from '../../lib/hooks.js';
 import { exerciseName, getExercise } from '../../lib/catalog.js';
 import { previousSets } from '../../lib/stats.js';
 import { defaultIncrement } from '../../lib/loads.js';
 import { suggest } from '../../lib/progression.js';
 import { openExercisePrefs } from '../exercises/ExercisePrefs.jsx';
+import { FixedNoteBox, openFixedNote } from '../exercises/FixedNote.jsx';
+import { fmtSecs, modeAllowed, resolveKind, resolveLoadMode } from '../../lib/kinds.js';
+import { saveSettings, savePrefs, state as dataState } from '../../lib/data.js';
+import { getSetTimer, stopSetTimer } from '../../lib/set-timer.js';
+import { RunningTime, TimeField, TimerButton, useSetTimer } from './TimeCell.jsx';
+import { openStallSheet } from './StallSheet.jsx';
 import { startRest } from '../../lib/rest-timer.js';
 import { fmtClock, fmtNum, fmtSet, num } from '../../lib/format.js';
 import {
@@ -41,14 +47,51 @@ function alignPrev(sets, prev) {
   return sets.map((s) => (s.type === 'W' ? pw[w++] : pn[n++]));
 }
 
+// Encabezado de la columna de peso según el tipo de ejercicio (peso corporal: sin columna)
+const WEIGHT_HEAD = { peso_reps: 'kg', lastre: '+kg', asistido: '−kg', tiempo: 'kg' };
+const WEIGHT_LABEL = { peso_reps: 'Peso (kg)', lastre: 'Lastre (kg)', asistido: 'Asistencia (kg)', tiempo: 'Peso (kg)' };
+const MODE_SUFFIX = { total: '', por_mano: ' c/u', unilateral: '/lado' }; // feature 05
+
+// "Usar esto para todas las mancuernas": guarda el modo en los ejercicios de mancuerna que ya usaste
+// (se sincroniza) y lo deja como respaldo para los que agregues después.
+function answerDumbbell(id, mode, all) {
+  savePrefs(id, { load_mode: mode });
+  if (!all) return;
+  saveSettings({ dumbbellMode: mode });
+  const used = new Set([...dataState.workouts, ...dataState.templates].flatMap((w) => (w.exercises || []).map((e) => e.exercise_id)));
+  for (const exId of used) {
+    if (exId !== id && getExercise(exId)?.category === 'Mancuerna' && !dataState.exercise_prefs.find((p) => p.id === exId)?.load_mode) {
+      savePrefs(exId, { load_mode: mode });
+    }
+  }
+}
+
+function DumbbellAsk({ id }) {
+  const [all, setAll] = useState(false);
+  return (
+    <Box className={`${classes.goal} ${classes.ask}`} data-testid="dumbbell-ask">
+      <IconWeight size={16} className={classes.goalIcon} />
+      <Box>
+        <Text size="sm" className={classes.goalText}>¿Anotas el peso de una mancuerna o el total?</Text>
+        <Group gap={6} mt={6}>
+          <Button size="compact-sm" variant="filled" onClick={() => answerDumbbell(id, 'por_mano', all)} data-testid="dumbbell-one">Una mancuerna</Button>
+          <Button size="compact-sm" variant="default" onClick={() => answerDumbbell(id, 'total', all)} data-testid="dumbbell-total">El total</Button>
+        </Group>
+        <Checkbox mt={8} size="xs" label="Usar esto para todas las mancuernas" checked={all} onChange={(e) => setAll(e.currentTarget.checked)} data-testid="dumbbell-all" />
+      </Box>
+    </Box>
+  );
+}
+
 const sameSets = (a, b) => a.length === b.length && a.every((x, i) => x.weight === b[i].weight && x.reps === b[i].reps);
 
 // "63 × 8" / "62,5 × 10" / "13 reps"
 const goalText = (g) => (g.weight ? `${fmtNum(g.weight, 2)} × ${g.reps}` : `${g.reps} reps`);
 
-const prevText = (p) => {
+const prevText = (p, kind) => {
   if (!p) return '—';
-  if (p.weight) return `${fmtNum(p.weight)} × ${p.reps ?? 0}`;
+  if (kind === 'tiempo' || (!p.reps && p.seconds)) return p.seconds ? `${p.weight ? `${fmtNum(p.weight)} · ` : ''}${fmtSecs(p.seconds)}` : '—';
+  if (p.weight && kind !== 'peso_corporal') return `${fmtNum(p.weight)} × ${p.reps ?? 0}`;
   return `${p.reps ?? 0} reps`;
 };
 
@@ -115,8 +158,11 @@ function SetTypeMenu({ s, label, onType, onDelete }) {
 }
 
 function SetRow({ s, label, p, goal, cols, ctx, si }) {
-  const { isActive, isTemplate, showRpe, ei, update, toggle } = ctx;
+  const { isActive, isTemplate, showRpe, ei, update, toggle, kind, timerKey, timer } = ctx;
   const ph = goal || p || s.target || {};
+  const timed = kind === 'tiempo';
+  const key = timerKey(si);
+  const running = isActive && timer?.key === key;
   const patch = (fn) => update((d) => fn(d.exercises[ei].sets[si]));
   return (
     <div
@@ -133,23 +179,41 @@ function SetRow({ s, label, p, goal, cols, ctx, si }) {
       />
       <UnstyledButton
         className={classes.prev} disabled={!p}
-        onClick={() => patch((x) => { x.weight = p.weight; x.reps = p.reps; })}
+        onClick={() => patch((x) => { x.weight = p.weight; x.reps = p.reps; if (p.seconds) x.seconds = p.seconds; })}
         title={p ? `Copiar ${fmtSet(p)}` : 'Sin registro anterior'}
         data-testid="set-prev"
       >
-        {prevText(p)}
+        {prevText(p, kind)}
       </UnstyledButton>
-      <NumField
-        value={s.weight} mode="decimal" label="Peso (kg)" testId="set-weight"
-        placeholder={ph.weight != null ? fmtNum(ph.weight, 2) : 'kg'}
-        onValue={(v) => patch((x) => { x.weight = v; })}
-      />
-      <NumField
-        value={s.reps} mode="numeric" label="Repeticiones" testId="set-reps"
-        placeholder={ph.reps != null ? String(ph.reps) : 'reps'}
-        onValue={(v) => patch((x) => { x.reps = v; })}
-      />
-      {showRpe && !isTemplate ? (
+      {kind !== 'peso_corporal' ? (
+        <NumField
+          value={s.weight} mode="decimal" label={WEIGHT_LABEL[kind]} testId="set-weight"
+          placeholder={ph.weight ? fmtNum(ph.weight, 2) : timed ? '—' : 'kg'}
+          onValue={(v) => patch((x) => { x.weight = v; })}
+        />
+      ) : null}
+      {timed ? (
+        running ? <RunningTime timer={timer} /> : (
+          <TimeField
+            value={s.seconds} placeholder={ph.seconds ? fmtSecs(ph.seconds) : 'm:ss'}
+            onValue={(v) => patch((x) => { if (v) x.seconds = v; else delete x.seconds; })}
+          />
+        )
+      ) : (
+        <NumField
+          value={s.reps} mode="numeric" label="Repeticiones" testId="set-reps"
+          placeholder={ph.reps != null ? String(ph.reps) : 'reps'}
+          onValue={(v) => patch((x) => { x.reps = v; })}
+        />
+      )}
+      {timed && isActive ? (
+        <TimerButton
+          timerKey={key} running={running} disabled={!!s.done}
+          target={s.seconds || s.target?.seconds || null}
+          onStop={(secs) => patch((x) => { x.seconds = secs; })}
+        />
+      ) : null}
+      {showRpe && !isTemplate && !timed ? (
         <select
           className={classes.rpe} value={s.rpe ?? ''} aria-label="RPE (esfuerzo, 10 = al fallo)"
           onChange={(e) => {
@@ -191,21 +255,42 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
   );
   const prevA = useMemo(() => alignPrev(ex.sets, prev), [ex.sets, prev]);
   const prefs = useMemo(() => allPrefs.find((x) => x.id === ex.exercise_id) || null, [allPrefs, ex.exercise_id]);
+  const kind = resolveKind(prefs, meta || { name });
+  const timed = kind === 'tiempo';
+  const loadMode = resolveLoadMode(prefs, kind, { category, dumbbellMode: settings.dumbbellMode });
+  const askDumbbell = isActive && category === 'Mancuerna' && modeAllowed(kind) && !prefs?.load_mode && !settings.dumbbellMode;
+  const timer = useSetTimer();
+  const timerKey = (si) => `${docId}:${ei}:${si}`;
+
+  // Estancamiento (feature 06): solo en el entrenamiento en curso
+  const stalls = useStalls();
+  const stall = isActive && stalls.get(ex.exercise_id)?.stalled ? stalls.get(ex.exercise_id) : null;
 
   // Objetivo para superar la vez anterior (feature 01): solo en el entrenamiento en curso
   const goal = useMemo(() => {
-    if (!isActive || settings.suggest === false) return null;
+    if (!isActive || settings.suggest === false || kind === 'asistido' || kind === 'tiempo') return null;
     return suggest({
       workouts, exId: ex.exercise_id, excludeId: docId, templateId, prefs,
       increment: defaultIncrement(category),
       barbell: barbell ? { bar: settings.bar, plates: settings.plates } : null,
+      stalled: !!stall, resetPct: (settings.resetPct ?? 10) / 100,
     });
-  }, [isActive, settings.suggest, settings.bar, settings.plates, workouts, ex.exercise_id, docId, templateId, prefs, category, barbell]);
+  }, [isActive, settings.suggest, settings.bar, settings.plates, settings.resetPct, workouts, ex.exercise_id, docId, templateId, prefs, category, barbell, kind, stall]);
   const goalIdx = goal ? ex.sets.findIndex((s) => s.type !== 'W' && s.type !== 'D') : -1;
-  const [goalMain, goalAlt] = !goal ? [null, null] : ex.goal_alt && goal.alt ? [goal.alt, goal.main] : [goal.main, goal.alt];
-  const swapGoal = () => update((d) => {
+  // Opciones: reinicio (si está estancado, va primero), la principal y la alternativa
+  const goalOptions = !goal ? [] : [
+    ...(goal.reset ? [{ key: 'reset', weight: goal.reset.weight, reps: goal.reset.reps }] : []),
+    { key: 'main', ...goal.main },
+    ...(goal.alt ? [{ key: 'alt', ...goal.alt }] : []),
+  ];
+  const picked = ex.goal_pick || (ex.goal_alt ? 'alt' : null);
+  const goalMain = goalOptions.find((o) => o.key === picked) || goalOptions[0] || null;
+  const goalOthers = goalOptions.filter((o) => o !== goalMain);
+  const goalSource = goalMain?.key === 'reset' ? 'reinicio' : goal?.source;
+  const pickGoal = (key) => update((d) => {
     const x = d.exercises[ei];
-    if (x.goal_alt) delete x.goal_alt; else x.goal_alt = true;
+    delete x.goal_alt;
+    x.goal_pick = key;
   });
   const askIncrement = goal?.source === 'superar' && !prefs?.min_increment && !barbell && category !== 'Mancuerna';
   const openPrefs = () => openExercisePrefs({ id: ex.exercise_id, name, category });
@@ -218,8 +303,8 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
     ? workSet.weight ?? (workIdx === goalIdx ? goalMain?.weight : null) ?? workSet.target?.weight ?? prevA[workIdx]?.weight ?? null
     : null;
   const warm = useMemo(
-    () => (workRef > 0 && !isTemplate ? warmupFor({ exercise_id: ex.exercise_id, name: ex.name }, workRef, workouts, settings) : []),
-    [workRef, isTemplate, ex.exercise_id, ex.name, workouts, settings, prefs],
+    () => (workRef > 0 && !isTemplate && kind === 'peso_reps' ? warmupFor({ exercise_id: ex.exercise_id, name: ex.name }, workRef, workouts, settings) : []),
+    [workRef, isTemplate, ex.exercise_id, ex.name, workouts, settings, prefs, kind],
   );
   const warmSets = ex.sets.filter((s) => s.type === 'W');
   const pendingWarm = warmSets.filter((s) => !s.done);
@@ -264,22 +349,37 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
   const autoRest = meta?.rest ?? settings.defaultRest;
   const restFor = ex.rest ?? autoRest;
   const cols = [
-    '34px', 'minmax(0,1fr)', '62px', '54px',
-    showRpe && !isTemplate ? '50px' : null,
+    '34px', 'minmax(0,1fr)',
+    kind !== 'peso_corporal' ? (timed ? '52px' : '62px') : null,
+    timed ? '64px' : '54px',
+    timed && isActive ? '36px' : null,
+    showRpe && !isTemplate && !timed ? '50px' : null,
     isActive ? '40px' : null,
   ].filter(Boolean).join(' ');
 
   const toggle = (si) => {
     const s = ex.sets[si];
     const p = prevA[si];
-    if (!s.done) {
+    if (!s.done && timed) {
+      const ph = p || s.target || {};
+      const t = getSetTimer();
+      const fromTimer = t?.key === timerKey(si) ? stopSetTimer() : 0;
+      const seconds = fromTimer || s.seconds || ph.seconds || null;
+      if (!seconds) { notify.warn('Ingresa el tiempo o usa el cronómetro'); return; }
+      const next = { ...s, weight: s.weight || ph.weight || null, reps: null, seconds, done: true };
+      next.fb = setFeedback(ex.exercise_id, next, p, docId, before);
+      if (!next.fb) delete next.fb;
+      update((d) => { d.exercises[ei].sets[si] = next; });
+      if (next.fb === 'pr') notify.record(`${name}: ${fmtSet(next)}`);
+      startRest(restFor);
+    } else if (!s.done) {
       const g = si === goalIdx ? goalMain : null;
       const ph = g || p || s.target || {};
       const reps = s.reps ?? ph.reps ?? null;
       if (reps == null) { notify.warn('Ingresa las repeticiones'); return; }
       const next = { ...s, weight: s.weight ?? ph.weight ?? 0, reps, done: true };
-      if (g) next.target = { weight: g.weight, reps: g.reps, source: goal.source };
-      next.fb = setFeedback(ex.exercise_id, next, p, docId);
+      if (g) next.target = { weight: g.weight, reps: g.reps, source: goalSource };
+      next.fb = setFeedback(ex.exercise_id, next, p, docId, before);
       if (!next.fb) delete next.fb;
       update((d) => { d.exercises[ei].sets[si] = next; });
       if (next.fb === 'pr') notify.record(`${name}: ${fmtSet(next)}`);
@@ -315,11 +415,14 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
   const addSet = () => update((d) => {
     const sets = d.exercises[ei].sets;
     const last = sets.at(-1);
-    sets.push({ type: 'N', weight: last?.weight ?? null, reps: last?.reps ?? null, done: !isActive && !isTemplate });
+    sets.push({
+      type: 'N', weight: last?.weight ?? null, reps: last?.reps ?? null, ...(last?.seconds ? { seconds: last.seconds } : {}),
+      done: !isActive && !isTemplate,
+    });
   });
 
   const done = ex.sets.filter((s) => s.done).length;
-  const ctx = { isActive, isTemplate, showRpe, ei, update, toggle };
+  const ctx = { isActive, isTemplate, showRpe, ei, update, toggle, kind, timerKey, timer };
   let n = 0;
 
   return (
@@ -337,6 +440,20 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
               {isActive ? `${done}/${ex.sets.length} series` : `${ex.sets.length} ${ex.sets.length === 1 ? 'serie' : 'series'}`}
               {meta?.bodyPart ? ` · ${meta.bodyPart}` : ''}
             </Text>
+            {stall ? (
+              <span
+                role="button" tabIndex={0} className={classes.stallTag} data-testid="stall-tag"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openStallSheet({
+                    id: ex.exercise_id, name, stall, reset: goal?.reset || null, atMax: goal?.atMax,
+                    onUseReset: () => pickGoal('reset'),
+                  });
+                }}
+              >
+                Estancado
+              </span>
+            ) : null}
           </Box>
         </UnstyledButton>
         {isActive || isTemplate ? (
@@ -361,15 +478,20 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
               </Menu.Item>
             ) : null}
             {!isTemplate ? (
-              <Menu.Item leftSection={<IconNote size={16} />} onClick={() => setShowNote(true)}>Nota</Menu.Item>
+              <Menu.Item leftSection={<IconNote size={16} />} onClick={() => setShowNote(true)}>Nota de hoy</Menu.Item>
             ) : null}
-            <Menu.Item
-              leftSection={<IconFlame size={16} />} onClick={addWarmup} disabled={noLoad} data-testid="warmup-menu"
-              title={noLoad ? 'Sin peso: el calentamiento no aplica' : undefined}
-            >
-              {noLoad ? 'Calentamiento (sin peso)' : 'Agregar calentamiento'}
+            <Menu.Item leftSection={<IconPin size={16} />} onClick={() => openFixedNote({ id: ex.exercise_id, name })} data-testid="fixed-note-menu">
+              Nota fija
             </Menu.Item>
-            {isTemplate ? (
+            {kind === 'peso_reps' ? (
+              <Menu.Item
+                leftSection={<IconFlame size={16} />} onClick={addWarmup} disabled={noLoad} data-testid="warmup-menu"
+                title={noLoad ? 'Sin peso: el calentamiento no aplica' : undefined}
+              >
+                {noLoad ? 'Calentamiento (sin peso)' : 'Agregar calentamiento'}
+              </Menu.Item>
+            ) : null}
+            {isTemplate && kind === 'peso_reps' ? (
               <Menu.Item
                 leftSection={<IconFlame size={16} />} onClick={toggleAutoWarm} data-testid="warmup-auto"
                 rightSection={ex.auto_warmup ? <IconCheck size={16} /> : null}
@@ -390,23 +512,29 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
         </Menu>
       </Group>
 
+      {askDumbbell ? <DumbbellAsk id={ex.exercise_id} /> : null}
+
+      {prefs?.note ? (
+        <FixedNoteBox note={prefs.note} className={classes.fixedNote} onEdit={() => openFixedNote({ id: ex.exercise_id, name })} />
+      ) : null}
+
       {goal ? (
-        <Box className={classes.goal} data-testid="goal-line" data-source={goal.source}>
+        <Box className={classes.goal} data-testid="goal-line" data-source={goalSource}>
           <IconTrendingUp size={16} className={classes.goalIcon} />
           <Text size="sm" className={classes.goalText}>
-            {goal.source === 'pausa' ? 'Vuelta después de una pausa: ' : 'Para superar: '}
+            {goalSource === 'reinicio' ? 'Reinicio: ' : goal.source === 'pausa' ? 'Vuelta después de una pausa: ' : 'Para superar: '}
             <b data-testid="goal-main">{goalText(goalMain)}</b>
-            {goalAlt ? (
-              <>
+            {goalOthers.map((o) => (
+              <span key={o.key}>
                 {' · o '}
                 <UnstyledButton
-                  component="span" className={classes.goalAlt} onClick={swapGoal}
-                  aria-label={`Usar ${goalText(goalAlt)}`} data-testid="goal-alt"
+                  component="span" className={classes.goalAlt} onClick={() => pickGoal(o.key)}
+                  aria-label={`Usar ${goalText(o)}`} data-testid={o.key === 'reset' ? 'goal-reset' : 'goal-alt'}
                 >
-                  {goalText(goalAlt)}
+                  {o.key === 'reset' ? `reinicio ${goalText(o)}` : goalText(o)}
                 </UnstyledButton>
-              </>
-            ) : null}
+              </span>
+            ))}
             {goal.source === 'pausa' ? ' (iguala tu 1RM)' : ''}
             {goal.atMax ? ' · Estás en el tope de la máquina' : ''}
           </Text>
@@ -448,9 +576,10 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
         <div className={`${classes.grid} ${classes.headRow}`} style={{ '--cols': cols }}>
           <span style={{ textAlign: 'center' }}>Serie</span>
           <span>Anterior</span>
-          <span>kg</span>
-          <span>Reps</span>
-          {showRpe && !isTemplate ? <span>RPE</span> : null}
+          {kind !== 'peso_corporal' ? <span data-testid="weight-head">{WEIGHT_HEAD[kind]}{modeAllowed(kind) ? MODE_SUFFIX[loadMode] : ''}</span> : null}
+          <span>{timed ? 'Tiempo' : 'Reps'}</span>
+          {timed && isActive ? <span /> : null}
+          {showRpe && !isTemplate && !timed ? <span>RPE</span> : null}
           {isActive ? <span style={{ display: 'flex', justifyContent: 'flex-end', paddingRight: 11 }}><IconCheck size={14} stroke={3} /></span> : null}
         </div>
       ) : null}

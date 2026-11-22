@@ -1,6 +1,6 @@
 # 08 · Mapa muscular y rango semanal de series
 
-**Estado:** primera versión en v0.0.7 (ver notas al final) · **Esfuerzo:** M · **Depende de:** — · **Relacionada con:** 07
+**Estado:** primera versión en v0.0.7; regiones, grupo editable y mini mapa en v0.0.9 (ver notas al final) · **Esfuerzo:** M · **Depende de:** — · **Relacionada con:** 07
 
 ## Problema y objetivo
 
@@ -149,6 +149,31 @@ Por pedido del usuario se implementó antes del orden previsto, con estas decisi
 - Pendiente de este documento: regiones dentro de cada músculo, músculos por ejercicio en
   `exercise_prefs` (hoy el grupo de un ejercicio del catálogo no se puede cambiar; el de uno propio, sí,
   en su ficha) y el mini mapa en el resumen al terminar.
+
+## Notas de la segunda parte (v0.0.9)
+
+Se mantienen las decisiones de v0.0.7 (estímulo directo por grupo, meta única, sin estado "sobre").
+
+- **Regiones** (`src/lib/regions.js`, lista fija `REGIONS` por grupo de `BODY_PARTS`): Pecho, Hombros,
+  Espalda alta (trapecio superior; trapecio medio y romboides), Bíceps (cabeza larga, corta, braquial),
+  Antebrazo (braquiorradial, flexores, extensores), Tríceps, Cuádriceps, Isquiotibiales, Glúteos y
+  Pantorrillas. Dorsales, Lumbar, Core, Aductores y Abductores no tienen regiones. Se guardan en
+  `exercise_prefs.regions` (1–2, claves como `pecho.superior`).
+- `regionStats()`: cada serie efectiva suma 1 a cada región del ejercicio; "sin trabajar esta semana" =
+  series en las últimas 4 semanas y ninguna en los últimos 7 días; lista los ejercicios del grupo sin región.
+- **Hoja del músculo:** sección "Por región" (series por semana del periodo elegido) y "Sin región
+  asignada" → hoja "Músculo" que guarda al tocar (asignar una región: 2 toques).
+- **Grupo editable:** ficha del ejercicio → "Músculo". En uno del catálogo se guarda en
+  `exercise_prefs.primary_muscles[0]` (un grupo de `BODY_PARTS`) y `getExercise()` lo aplica en toda la app;
+  en uno propio se cambia su `body_part`. Al cambiar de grupo se descartan las regiones del grupo anterior.
+  `secondary_muscles` sigue sin usarse (solo estímulo directo).
+- Lista "Sin grupo muscular" en la tarjeta del perfil cuando hay series de ejercicios sin grupo (hoy no
+  hay ninguno: los 38 ejercicios usados tienen grupo).
+- **Mini mapa** "Músculos trabajados" en el detalle de cada entrenamiento (también justo al terminar):
+  más intenso con más series; debajo, la lista en texto.
+- No implementado: pintar regiones por separado en el dibujo (no hay meta por región) ni la banda del
+  rango en el gráfico de series por grupo (la meta es única y el gráfico muestra totales del periodo).
+- Arreglo general: con hojas apiladas, Escape cierra solo la de arriba (antes cerraba todas).
 
 ## Pruebas
 

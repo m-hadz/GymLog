@@ -1,5 +1,6 @@
 // Cálculos del resumen del perfil (puros, sobre la lista de entrenamientos).
 import { isWorking, workoutDuration, workoutVolume } from '../../lib/stats.js';
+import { streakStats } from '../../lib/streak.js';
 
 
 export function mondayOf(d) {
@@ -11,21 +12,19 @@ export function mondayOf(d) {
 
 /**
  * Totales para la cabecera del perfil.
- * - streak: semanas seguidas con al menos un entrenamiento. La semana en curso
- *   cuenta si ya tiene uno; si no, la racha sigue viva desde la semana anterior.
+ * - streak: la racha según la meta de constancia (lib/streak.js); sin meta, semanas seguidas con al
+ *   menos un entrenamiento (la semana en curso no la corta).
  */
-export function profileSummary(workouts) {
+export function profileSummary(workouts, goal, pauses) {
   const now = new Date();
   const thisMonday = mondayOf(now).getTime();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-  const weeks = new Set();
   let thisWeek = 0, monthCount = 0, monthVolume = 0, monthMs = 0, first = null;
 
   for (const w of workouts) {
     const t = new Date(w.started_at).getTime();
     if (!Number.isFinite(t)) continue;
     const mon = mondayOf(t).getTime();
-    weeks.add(mon);
     if (mon === thisMonday) thisWeek++;
     if (t >= monthStart) {
       monthCount++;
@@ -35,14 +34,7 @@ export function profileSummary(workouts) {
     if (first == null || t < first) first = t;
   }
 
-  let streak = 0;
-  // Se camina por fechas (no por ms) para no tropezar con cambios de horario
-  const cursor = new Date(thisMonday);
-  if (!weeks.has(cursor.getTime())) cursor.setDate(cursor.getDate() - 7);
-  while (weeks.has(mondayOf(cursor).getTime())) {
-    streak++;
-    cursor.setDate(cursor.getDate() - 7);
-  }
+  const streak = streakStats(workouts, goal, pauses).current;
 
   return {
     total: workouts.length, thisWeek, streak, monthCount, monthVolume,

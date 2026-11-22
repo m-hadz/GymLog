@@ -1,6 +1,7 @@
-# 04 · Pendientes validados: peso corporal/lastre/asistido, nota fija, ejercicios por tiempo, superseries
+# 04 · Pendientes validados: peso corporal/lastre/asistido, nota fija, ejercicios por tiempo
 
-**Esfuerzo:** M en total (cuatro partes S–M que se pueden entregar por separado)
+**Estado:** A, B y C implementadas en v0.0.9; las superseries (antes parte D) se descartaron: no se usarán.
+**Esfuerzo:** M en total (tres partes S–M que se pueden entregar por separado)
 · **Depende de:** base común A; la parte A necesita la feature 03 (peso corporal)
 
 Estas cuatro ya estaban en "Pendiente (ideas)" del README. La investigación confirmó que los usuarios
@@ -9,7 +10,7 @@ Strong piden cuenta regresiva con aviso para ejercicios por tiempo y se quejan d
 editar superseries, y una reseña de Hevy reclama que las sentadillas sin peso no suman volumen.
 https://www.hevyapp.com/community-updates/july-26/ · https://www.hevyapp.com/features/workout-settings/
 
-Cada parte tiene sus propios criterios de aceptación y se puede entregar sola, en este orden: A, B, C, D.
+Cada parte tiene sus propios criterios de aceptación y se puede entregar sola, en este orden: A, B, C.
 
 ---
 
@@ -102,44 +103,30 @@ ejercicio vive solo dentro de un entrenamiento.
 
 ---
 
-## D. Superseries
+## Fuera de alcance
 
-### Reglas
-- Ejercicios **consecutivos** del entrenamiento o plantilla pueden compartir un `group` (id corto).
-  Un grupo tiene 2 o más ejercicios.
-- Orden de trabajo: serie 1 del ejercicio A → serie 1 del B → (descanso) → serie 2 del A → …
-- **Descanso:** al marcar ✓ en un ejercicio del grupo que no es el último, no se inicia el descanso; al
-  marcar el último del grupo, se inicia el descanso del grupo (el mayor de sus ejercicios).
-- Al marcar ✓, la pantalla se desplaza a la siguiente serie pendiente del grupo.
-- Reordenar mueve el grupo completo; sacar un ejercicio del grupo lo deja suelto debajo.
-- Las estadísticas no cambian (cada ejercicio cuenta por separado).
-
-### Interfaz
-- Menú del ejercicio: "Superserie con…" → lista de los otros ejercicios → los junta (mueve el elegido
-  debajo si no era consecutivo). "Quitar de la superserie" para separar.
-- Barra de color vertical a la izquierda de los ejercicios del grupo y una etiqueta "Superserie A".
-- En la plantilla se ve igual y el grupo se copia al empezar el entrenamiento.
-
-### Datos
-- Campo opcional `group` en `workouts.exercises[]` y `templates.exercises[]`. Sin migración.
-
-### Criterios de aceptación
-- [ ] Juntar press banca y remo en superserie los muestra unidos con la barra de color.
-- [ ] Marcar la serie 1 de banca no inicia el descanso y desplaza al remo; marcar la serie 1 del remo
-      inicia el descanso.
-- [ ] Reordenar mueve los dos juntos.
-- [ ] Una plantilla con superserie la conserva al empezar el entrenamiento y al "guardar como plantilla".
-- [ ] Volumen, récords y comparación por ejercicio quedan igual que sin superserie.
-- [ ] Separar la superserie deja dos ejercicios normales.
-
----
-
-## Fuera de alcance (las cuatro partes)
+- Superseries: descartadas por el usuario (no las usa).
 
 - Circuitos de 3+ ejercicios con descansos distintos por ejercicio (un grupo de 3+ sí se permite, con
   la regla de descanso de arriba).
 - Ejercicios de distancia (cardio con km).
 - Unir ejercicios duplicados y buscador en español (siguen en "Pendiente").
+
+## Notas de implementación (v0.0.9)
+
+- `src/lib/kinds.js`: tipos, `resolveKind`, `effectiveLoad`, `withEffectiveLoads`, `fmtSecs`/`parseSecs`.
+  `src/lib/effective.js` cachea los entrenamientos con carga efectiva (`useAnalysis()` en hooks.js); se
+  usan para mostrar y analizar (historial, perfil, ficha, resumen). Editar y guardar usa siempre lo anotado.
+- Tipo por defecto: "Peso corporal" si la categoría lo es, o si el nombre es típico (pull up, chin up,
+  push up, dips…) y no tiene categoría. Se cambia en Ajustes del ejercicio.
+- Peso corporal de cada fecha: `bodyweightLookup` (body.js). Para entrenamientos hasta 60 días antes del
+  primer registro se usa ese primer registro.
+- Récords: "peso" es el lastre en ejercicios con lastre; en peso corporal no hay récord de peso (subir de
+  peso corporal no lo es). Las series por tiempo tienen récord "TIEMPO" y no suman volumen.
+- Las series por tiempo se guardan en `seconds` (mismo campo que la importación de Strong), así la
+  exportación ya escribe la columna Seconds.
+- Sin objetivo de sugerencia ni calentamiento en asistidos, tiempo y peso corporal.
+- Nota fija: `exercise_prefs.note`, en un recuadro amarillo con "ver más"; menú "Nota fija" y ficha.
 
 ## Pruebas
 

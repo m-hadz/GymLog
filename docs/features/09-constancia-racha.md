@@ -1,6 +1,6 @@
 # 09 · Meta de constancia (día por medio) y racha que se puede reparar
 
-**Esfuerzo:** S · **Depende de:** — · **Relacionada con:** 07
+**Estado:** implementada en v0.0.9 · **Esfuerzo:** S · **Depende de:** — · **Relacionada con:** 07
 
 ## Problema y objetivo
 
@@ -118,6 +118,27 @@ Esta tabla sirve también para ajustes futuros que deban sincronizarse.
 - [ ] Una pausa de hasta 14 días no corta la racha; una segunda pausa dentro de 6 semanas no se permite.
 - [ ] Al volver después de un corte, el mensaje es el positivo y no menciona la racha perdida.
 - [ ] La meta y las pausas se sincronizan a otro dispositivo.
+
+## Notas de implementación (v0.0.9)
+
+- `src/lib/streak.js`: `streakStats(workouts, goal, pauses, today)` con números de día local (sin
+  milisegundos: inmune al cambio de horario); `pauseError()` valida las pausas; `dueText()` y
+  `streakText()` para la interfaz. Hook `useStreak()` (hooks.js). Entrenar, Calendario, Perfil
+  (`profileSummary`) y el resumen (07) usan el mismo cálculo.
+- Modo semanal: cuenta **días** entrenados (dos el mismo día cuentan uno). Una semana con algún día de
+  pausa que no cumple no suma ni corta. La semana en curso nunca corta.
+- Tabla `user_settings` (fila `me`, `data jsonb`), opcional como `exercise_prefs` y `body_metrics`: sin
+  la tabla la app funciona y el cambio queda pendiente de sincronizar. Incluida en el respaldo JSON.
+- Ajustes: Perfil → Ajustes → "Meta de constancia" (y desde la tarjeta "Constancia" del Perfil). La hoja
+  muestra antes de guardar: "Con esta meta tu racha sería de …, la mejor de …, con N cortes".
+- Registrar un día pasado: tocar un día pasado sin entrenamiento en el Calendario → plantilla o vacío →
+  `#/workout/new/edit?date=YYYY-MM-DD[&tpl=id]` (modo editar: sin entrenamiento en curso ni temporizadores);
+  al guardar abre el resumen con la racha.
+- Resumen (07) con meta de cadencia: racha al cierre, cortes en el periodo y días promedio entre
+  entrenamientos; la imagen para compartir usa esa racha.
+- Con el historial real al 21 nov 2026 (60 entrenamientos), día por medio con tolerancia 1: racha 30,
+  mejor 30, 3 cortes (29 al escribir este documento, con un entrenamiento menos). Tolerancia 2: 59 y 1
+  corte. Sin meta: 19 semanas, igual que antes.
 
 ## Pruebas
 
