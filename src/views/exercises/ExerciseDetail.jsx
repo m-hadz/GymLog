@@ -6,13 +6,13 @@ import {
   Badge, Box, Button, Card, Group, Image, SimpleGrid, Stack, Table, Tabs, Text, ThemeIcon, UnstyledButton,
 } from '@mantine/core';
 import {
-  IconBarbell, IconCalendarEvent, IconChevronRight, IconClock, IconEdit, IconFlame, IconPin, IconRepeat, IconScale, IconStack2,
+  IconBarbell, IconCalendarEvent, IconChevronRight, IconClock, IconEdit, IconEyeOff, IconFlame, IconPin, IconRepeat, IconScale, IconStack2,
   IconTrash, IconTrophy, IconWeight,
 } from '@tabler/icons-react';
 import { useAnalysis, useCatalog, useData, useSettings, useStalls } from '../../lib/hooks.js';
 import { stallSince } from '../workout/StallSheet.jsx';
 import { getExercise } from '../../lib/catalog.js';
-import { prefsOf, remove } from '../../lib/data.js';
+import { prefsOf, remove, savePrefs } from '../../lib/data.js';
 import { BODYWEIGHT_KINDS, KIND_LABEL, LOAD_MODE_LABEL, fmtSecs, resolveKind, resolveLoadMode } from '../../lib/kinds.js';
 import { FixedNoteBox, openFixedNote } from './FixedNote.jsx';
 import { openBodyForm } from '../body/BodyForm.jsx';
@@ -67,6 +67,17 @@ export function ExerciseDetail({ id, stickyTop = 0 }) {
     <Box className={classes.root}>
       <Hero ex={ex} name={name} sessions={sessions} weighted={weighted} kind={kind} mode={mode} />
       {prefs?.note ? <FixedNoteBox note={prefs.note} className={classes.fixedNote} onEdit={() => openFixedNote({ id, name })} /> : null}
+      {prefs?.exclude_from_suggestions ? (
+        <Card withBorder padding="sm" className={classes.bwHint} data-testid="excluded-hint">
+          <Group gap="sm" wrap="nowrap">
+            <IconEyeOff size={18} style={{ flex: 'none' }} />
+            <Text size="sm" style={{ flex: 1 }}>No se sugiere al reemplazar otro ejercicio.</Text>
+            <Button size="compact-sm" variant="light" onClick={() => savePrefs(id, { exclude_from_suggestions: false })} data-testid="excluded-revert">
+              Volver a sugerir
+            </Button>
+          </Group>
+        </Card>
+      ) : null}
       {bwKind && !bodyMetrics.length ? (
         <Card withBorder padding="sm" className={classes.bwHint} data-testid="bw-hint">
           <Group gap="sm" wrap="nowrap">

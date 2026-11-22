@@ -56,6 +56,7 @@ function fromCatalog(raw) {
     primary: raw.primaryMuscles || [],
     secondary: raw.secondaryMuscles || [],
     level: raw.level,
+    type: raw.category, // strength, stretching, plyometrics… (feature 10: los estiramientos no se sugieren)
     custom: false,
   };
 }

@@ -1,6 +1,6 @@
 # 10 · Reemplazar un ejercicio
 
-**Esfuerzo:** S–M · **Depende de:** — (usa `exercise_prefs` de la base común A para la lista de exclusión)
+**Estado:** implementada en v0.0.9 · **Esfuerzo:** S–M · **Depende de:** — (usa `exercise_prefs` de la base común A para la lista de exclusión)
 
 ## Problema y objetivo
 
@@ -91,6 +91,28 @@ Ejercicios propios sin músculos ni vínculo al catálogo: se usa `bodyPart` y l
 - [ ] "No sugerir más" saca ese ejercicio de las sugerencias (también en otro dispositivo) y se puede revertir.
 - [ ] El historial de ambos ejercicios queda correcto en sus fichas después de terminar.
 - [ ] Funciona sin conexión.
+
+## Notas de implementación (v0.0.9)
+
+- `src/lib/substitutes.js` (puro): `substitutes(exercise, catalog, history, excluded)`,
+  `lastSetIndex(workouts)` (última vez y su mejor serie efectiva), `replaceActive`, `replaceTemplate` y
+  `templateIndexOf`. Hoja en `src/views/workout/ReplaceSheet.jsx`; el menú y el deshacer en `ExerciseBlock.jsx`.
+- "Mismo músculo": el primero del catálogo (`primary[0]`); si el ejercicio no tiene (propio sin vincular)
+  o le cambiaste el grupo (feature 08), se compara el grupo. El equipo "Otro" no cuenta como mismo
+  equipo. Del catálogo no se sugieren estiramientos, pliometría, strongman ni cardio. El mismo ejercicio
+  con otro id (propio vinculado al del catálogo) no aparece, y un ejercicio del catálogo que ya tienes
+  como propio vinculado no se repite. Los propios, sin nivel, se ordenan con los de principiante.
+- Al pasar las series se conservan las reps objetivo de la plantilla (como guía; el peso no). Los
+  calentamientos pendientes no pasan: dependen del peso del ejercicio anterior (la tarjeta de
+  calentamiento vuelve a ofrecerlos para el nuevo). Se conservan descanso, calentamiento automático y
+  la nota de hoy (si se divide, la nota queda en el original).
+- "También en la plantilla" busca la misma aparición del ejercicio en la plantilla; si no está, avisa y
+  cambia solo hoy. Deshacer también revierte la plantilla. Con todas las series hechas el menú dice
+  "Agregar otro después" y la opción de plantilla no aparece.
+- No está en el modo "editar un entrenamiento guardado" (el alcance era en curso y plantilla).
+- Con el historial real: para "Chest Press (Machine)" sugiere primero "Iso-Lateral Chest Press
+  (Machine)" (la última vez 30 × 7) y luego máquinas de pecho del catálogo; para las poleas de tríceps,
+  la otra polea que ya usas.
 
 ## Pruebas
 
