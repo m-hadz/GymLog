@@ -12,7 +12,7 @@ import { notifications } from '@mantine/notifications';
 import { api } from './api.js';
 
 export const state = {
-  workouts: [], templates: [], exercises: [], exercise_prefs: [], body_metrics: [], user_settings: [],
+  workouts: [], templates: [], exercises: [], exercise_prefs: [], body_metrics: [], user_settings: [], programs: [],
   loaded: false, syncError: null, syncing: false,
 };
 
@@ -49,6 +49,7 @@ const SORTERS = {
   exercise_prefs: (a, b) => (a.id < b.id ? -1 : 1),
   body_metrics: (a, b) => (a.date < b.date ? 1 : -1), // más reciente primero
   user_settings: (a, b) => (a.id < b.id ? -1 : 1),
+  programs: (a, b) => (a.id < b.id ? -1 : 1),
 };
 
 // Siempre crea una lista nueva: así React (useMemo) detecta el cambio por identidad.
@@ -70,7 +71,7 @@ function applyOp(op) {
 const persistCache = () =>
   writeJSON('cache', {
     workouts: state.workouts, templates: state.templates, exercises: state.exercises, exercise_prefs: state.exercise_prefs,
-    body_metrics: state.body_metrics, user_settings: state.user_settings,
+    body_metrics: state.body_metrics, user_settings: state.user_settings, programs: state.programs,
   });
 
 export function loadCache() {
@@ -89,6 +90,7 @@ export async function refresh() {
   state.exercise_prefs = data.exercise_prefs || [];
   state.body_metrics = data.body_metrics || [];
   state.user_settings = data.user_settings || [];
+  state.programs = data.programs || [];
   outbox.forEach(applyOp); // los cambios aún no sincronizados siguen ganando
   state.loaded = true;
   persistCache();
@@ -122,29 +124,40 @@ export async function flush() {
   flushing = true;
   state.syncing = outbox.length > 0;
   try {
-    while (outbox.length) {
-      const op = outbox[0];
+    // Los cambios de una tabla que aún no existe en el servidor se guardan para más tarde (siguen en la
+    // cola y en el teléfono) sin frenar los de las demás tablas.
+    let i = 0;
+    let held = null;
+    let failed = null;
+    while (i < outbox.length) {
+      const op = outbox[i];
+      if (held?.has(op.table)) { i++; continue; }
       try {
         if (op.op === 'upsert') {
-          for (let i = 0; i < op.rows.length; i += 200) await api('POST', op.table, op.rows.slice(i, i + 200));
+          for (let j = 0; j < op.rows.length; j += 200) await api('POST', op.table, op.rows.slice(j, j + 200));
         } else {
           await api('DELETE', `${op.table}?id=${encodeURIComponent(op.id)}`);
         }
-        outbox.shift();
+        outbox.splice(i, 1);
         writeJSON('outbox', outbox);
-        state.syncError = null;
       } catch (e) {
+        if (e.held) {
+          (held ||= new Map()).set(op.table, e.message);
+          i++;
+          continue;
+        }
         // Errores de datos (400, 404, 413) no se arreglan reintentando: se descartan.
         if ([400, 404, 413].includes(e.status)) {
-          outbox.shift();
+          outbox.splice(i, 1);
           writeJSON('outbox', outbox);
           notifications.show({ color: 'red', title: 'No se pudo guardar', message: e.message, autoClose: 5000 });
           continue;
         }
-        state.syncError = e.message;
+        failed = e.message;
         break;
       }
     }
+    state.syncError = failed || (held ? [...held.values()].join(' · ') : null);
   } finally {
     flushing = false;
     state.syncing = false;

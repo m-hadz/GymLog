@@ -159,3 +159,20 @@ create index if not exists rest_alerts_subscription on rest_alerts (subscription
 grant select, insert, update, delete on table rest_alerts to service_role;
 revoke all on table rest_alerts from anon, authenticated;
 alter table rest_alerts enable row level security;
+
+-- Programas por porcentaje del máximo (v0.1, feature 12): 5/3/1 y GZCLP. Las plantillas de cada día
+-- son plantillas normales (tabla templates); aquí va la configuración y la posición del programa.
+create table if not exists programs (
+  id          text primary key,
+  name        text not null,
+  kind        text not null,                    -- '531' | 'gzclp'
+  config      jsonb not null default '{}'::jsonb, -- ejercicios, opciones, ids de las plantillas
+  state       jsonb not null default '{}'::jsonb, -- semana, día, etapas GZCLP, último resultado
+  active      boolean not null default true,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+grant select, insert, update, delete on table programs to service_role;
+revoke all on table programs from anon, authenticated;
+alter table programs enable row level security;

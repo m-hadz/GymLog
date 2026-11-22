@@ -468,3 +468,27 @@
   background: var(--mantine-color-orange-light);
   cursor: pointer;
 }
+
+/* Serie "reps al máximo" (5+), feature 12 */
+.amrapTag {
+  position: absolute;
+  top: -6px;
+  right: -7px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: var(--mantine-color-white);
+  background: var(--mantine-color-brand-6);
+}
+
+/* Asistente de programas: ejercicio de cada puesto (feature 12) */
+.programSlot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-default-border);
+}

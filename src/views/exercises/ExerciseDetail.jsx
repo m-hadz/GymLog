@@ -25,6 +25,7 @@ import { confirmDialog } from '../../components/dialogs.jsx';
 import { openExerciseForm } from '../../components/ExercisePicker.jsx';
 import { ExercisePrefsForm } from './ExercisePrefs.jsx';
 import { MuscleAssignForm } from './MuscleAssign.jsx';
+import { TrainingMaxForm } from './TrainingMax.jsx';
 import classes from './ExerciseDetail.module.css';
 
 const TABS = [['about', 'Descripción'], ['history', 'Historial'], ['charts', 'Gráficas'], ['records', 'Registros']];
@@ -220,6 +221,13 @@ function About({ ex, id, name, note }) {
         <Text size="xs" fw={700} c="dimmed" tt="uppercase" className={classes.label} mb={8}>Músculo</Text>
         <Card withBorder radius="md" padding="md">
           <MuscleAssignForm id={ex.id} />
+        </Card>
+      </Box>
+
+      <Box>
+        <Text size="xs" fw={700} c="dimmed" tt="uppercase" className={classes.label} mb={8}>Máximo de entrenamiento</Text>
+        <Card withBorder radius="md" padding="md">
+          <TrainingMaxForm id={ex.id} name={ex.name} />
         </Card>
       </Box>
 

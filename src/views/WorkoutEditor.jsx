@@ -23,6 +23,7 @@ import { stopRest } from '../lib/rest-timer.js';
 import { fmtClock, fmtDate, fmtTime, toLocalInput, uid } from '../lib/format.js';
 import { goBack, navigate } from '../lib/router.js';
 import { defaultWorkoutName, templateFromWorkout } from '../lib/workout.js';
+import { finishProgramWorkout, programOfTemplate, reprocessProgramWorkout } from '../lib/program-runtime.js';
 import { ExerciseBlock } from './workout/ExerciseBlock.jsx';
 import { openRestTimer } from './workout/sheets.jsx';
 import classes from './workout/workout.module.css';
@@ -114,6 +115,8 @@ function Editor({ mode, doc, update, onSave, onCancel, title }) {
       confirmLabel: 'Terminar',
     }))) return;
     const final = structuredClone(getActive() || cur);
+    // Para "Actualizar plantilla": las hechas con su objetivo (series en % del máximo, feature 12)
+    const doneWithTargets = final.exercises.map((e) => ({ ...e, sets: e.sets.filter((s) => s.done) })).filter((e) => e.sets.length);
     final.exercises = final.exercises
       .map((e) => ({ ...e, sets: e.sets.filter((s) => s.done).map(({ target, fb, ...s }) => s) }))
       .filter((e) => e.sets.length);
@@ -130,14 +133,17 @@ function Editor({ mode, doc, update, onSave, onCancel, title }) {
     }
     final.ended_at = new Date().toISOString();
     upsert('workouts', final);
-    const tpl = final.template_id && templateById(final.template_id);
+    // Día de un programa (feature 12): progresión y siguiente día; su plantilla la genera el programa
+    const inProgram = !!programOfTemplate(final.template_id);
+    if (inProgram) finishProgramWorkout(final);
+    const tpl = !inProgram && final.template_id && templateById(final.template_id);
     if (tpl && structure(tpl.exercises) !== structure(final.exercises) && await confirmDialog({
       title: 'Actualizar plantilla',
       message: `¿Actualizar "${tpl.name}" con los ejercicios y series de hoy?`,
       confirmLabel: 'Actualizar',
       cancelLabel: 'Mantener',
     })) {
-      upsert('templates', { ...templateFromWorkout(final, tpl.name), id: tpl.id, position: tpl.position, folder: tpl.folder, notes: tpl.notes });
+      upsert('templates', { ...templateFromWorkout({ ...final, exercises: doneWithTargets }, tpl.name), id: tpl.id, position: tpl.position, folder: tpl.folder, notes: tpl.notes });
     }
     clearActive();
     stopRest();
@@ -322,7 +328,12 @@ export function TemplateEditView({ id }) {
     if (!doc.name?.trim()) { notify.warn('Ponle un nombre'); return; }
     const final = structuredClone(doc);
     final.name = final.name.trim();
-    final.exercises.forEach((e) => { e.sets = e.sets.map(({ type, weight, reps }) => ({ type, weight, reps })); });
+    // pct/amrap: series en % del máximo y "reps al máximo" (feature 12)
+    final.exercises.forEach((e) => {
+      e.sets = e.sets.map(({ type, weight, reps, pct, amrap }) => ({
+        type, weight: pct > 0 ? null : weight, reps, ...(pct > 0 ? { pct } : {}), ...(amrap ? { amrap: true } : {}),
+      }));
+    });
     upsert('templates', final);
     notify.success('Plantilla guardada');
     done();
@@ -352,6 +363,7 @@ function WorkoutEditInner({ w }) {
     const final = finalizeEdited(doc);
     if (!final) return;
     upsert('workouts', final);
+    reprocessProgramWorkout(final); // si era el último día de un programa, se recalcula la progresión
     notify.success('Cambios guardados');
     back();
   };

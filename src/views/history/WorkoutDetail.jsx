@@ -19,6 +19,7 @@ import { EmptyState, ExerciseThumb, SectionTitle, StatGrid, StatTile, DeltaBadge
 import { confirmDialog, notify, promptDialog } from '../../components/dialogs.jsx';
 import { getExercise } from '../../lib/catalog.js';
 import { WorkoutMuscles } from './WorkoutMuscles.jsx';
+import { ProgramResult } from '../programs/ProgramViews.jsx';
 import classes from './history.module.css';
 
 const TYPE_COLOR = { W: 'orange', D: 'grape', F: 'red' };
@@ -279,6 +280,7 @@ export function WorkoutDetail({ id, query }) {
       />
       <Page gap="md">
         {done ? <Celebration prs={prs} /> : null}
+        {done ? <ProgramResult workoutId={w.id} /> : null}
 
         <Box>
           <Title order={2} className={classes.detailTitle}>{w.name}</Title>
