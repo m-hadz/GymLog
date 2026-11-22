@@ -1,4 +1,4 @@
-# GymLog — v0.0.9
+# GymLog — v0.1
 
 Registro de entrenamientos personal, inspirado en el flujo de Strong y escrito desde cero.
 Frontend en React + [Mantine](https://mantine.dev) (compilado con Vite, instalable como PWA),
