@@ -21,6 +21,10 @@ funciones serverless en Vercel y Postgres gratuito en Supabase.
   repeticiones). Todo gratis, sin muro PRO.
 - **Catálogo:** 800+ ejercicios con imágenes de [free-exercise-db](https://github.com/yuhonas/free-exercise-db)
   (dominio público), más tus ejercicios propios, que puedes vincular a una imagen del catálogo.
+- **Mapa del cuerpo:** dibujo anatómico de
+  [react-native-body-highlighter](https://github.com/HichamELBSI/react-native-body-highlighter)
+  (licencia MIT, © 2022 ELABBASSI Hicham), copiado como datos en `src/views/profile/bodyPaths.js`
+  con el aviso de la licencia; funciona sin conexión.
 - **Lectura del día:** cada mañana resume en español (8–10 min de lectura) el último video
   largo de un canal de YouTube, para leerlo en el teléfono, también sin señal.
 - **Tus datos:** importar el CSV de Strong (sin duplicar si lo reimportas; convierte libras a
@@ -55,7 +59,7 @@ funciones serverless en Vercel y Postgres gratuito en Supabase.
   lateral, braquial…) y la hoja de cada músculo muestra las series por región, marca "sin trabajar esta
   semana" y lista los ejercicios sin región para asignarla en 2 toques. El grupo de un ejercicio del
   catálogo ahora se puede corregir (ficha → Músculo). Mini mapa "Músculos trabajados" en el resumen de
-  cada entrenamiento.
+  cada entrenamiento. Dibujo del cuerpo nuevo, anatómico (MIT, ver arriba), cargado aparte.
 - **Meta de constancia y racha reparable** ([feature 09](docs/features/09-constancia-racha.md)): modos
   "Sin meta" (semanas con al menos uno, como antes), "Cada N días" (día por medio con tolerancia: la
   racha cuenta entrenamientos seguidos) y "N por semana". Tarjeta en Entrenar ("Hoy toca", "Mañana toca",
