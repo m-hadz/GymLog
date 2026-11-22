@@ -583,6 +583,57 @@ try {
   await tid('confirm-ok').click();
   step('estancamiento: tarjeta del perfil, etiqueta, reinicio 57 × 10 con ✓, ignorar por 7 sesiones');
 
+  // 12f. Constancia (feature 09): meta día por medio, misma racha en Entrenar / Calendario / Perfil,
+  // registrar un entrenamiento pasado desde el calendario, pausa y sincronización
+  const expectUntil = async (fn, what) => {
+    for (let i = 0; i < 40; i++) { if (fn()) return; await page.waitForTimeout(150); }
+    throw new Error(`No se cumplió: ${what}`);
+  };
+  await tab('profile');
+  await tid('goal-row').click();
+  await tid('goal-mode').getByText('Cada N días').click();
+  await visible(tid('goal-preview').getByText(/tu racha sería de/));
+  await tid('goal-save').click();
+  await tid('goal-sheet').waitFor({ state: 'detached' });
+  await expectUntil(() => db().user_settings?.me?.data?.goal?.mode === 'cadencia', 'meta sincronizada');
+  const streakOf = async (id) => (await tid(id).innerText()).match(/\d+/)[0];
+  const profileStreak = await streakOf('profile-streak');
+  await visible(tid('streak-card'));
+  await tab('train');
+  await visible(tid('constancy-due'));
+  await tid('constancy-card').screenshot({ path: join(SHOTS, '12f-entrenar.png') });
+  assert.equal(await streakOf('train-streak'), profileStreak);
+  await tab('history');
+  await tid('calendar-link').click();
+  assert.equal(await streakOf('calendar-streak'), profileStreak);
+  const before = count(db().workouts);
+  const empty = page.locator('[data-testid=cal-day][data-past-empty]').first();
+  await empty.click();
+  await tid('register-empty').click();
+  await visible(text('Registrar entrenamiento'));
+  await tid('add-exercises').click();
+  await tid('picker').getByTestId('exercise-search').fill('squat');
+  await tid('picker').getByTestId('exercise-row').filter({ hasText: 'Barbell Squat' }).first().click();
+  await tid('picker-add').click();
+  await cards().nth(0).getByTestId('set-weight').first().fill('50');
+  await cards().nth(0).getByTestId('set-reps').first().fill('8');
+  await tid('editor-save').click();
+  await visible(tid('celebrate-streak'));
+  await expectUntil(() => count(db().workouts) === before + 1, 'entrenamiento pasado guardado');
+  const saved = Object.values(db().workouts).sort((a, b) => (a.started_at < b.started_at ? 1 : -1));
+  assert.ok(saved.some((w) => new Date(w.started_at).getHours() === 18 && w.exercises[0]?.sets[0]?.reps === 8));
+  await shot('12f-constancia');
+  // Pausa: se agrega y se sincroniza
+  await tab('profile');
+  await tid('streak-card').screenshot({ path: join(SHOTS, '12f-perfil.png') });
+  await tid('goal-open').click();
+  await tid('pause-add').click();
+  await visible(tid('pause-row'));
+  await expectUntil(() => db().user_settings?.me?.data?.pauses?.length === 1, 'pausa sincronizada');
+  await page.keyboard.press('Escape');
+  await tid('goal-sheet').waitFor({ state: 'detached' });
+  step('constancia: meta día por medio, misma racha en 3 lugares, registrar día pasado, pausa');
+
   // 12e. Resumen mensual y anual (feature 07)
   await tab('history');
   await tid('month-report').last().click(); // el mes más antiguo del historial

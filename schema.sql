@@ -115,3 +115,16 @@ create index if not exists body_metrics_date_idx on body_metrics (date desc);
 grant select, insert, update, delete on table body_metrics to service_role;
 revoke all on table body_metrics from anon, authenticated;
 alter table body_metrics enable row level security;
+
+-- Ajustes sincronizados entre dispositivos (v0.0.9, feature 09: meta de constancia y pausas).
+-- Una sola fila (id = 'me'). Se puede correr solo este bloque.
+create table if not exists user_settings (
+  id          text primary key,
+  data        jsonb not null default '{}'::jsonb,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+grant select, insert, update, delete on table user_settings to service_role;
+revoke all on table user_settings from anon, authenticated;
+alter table user_settings enable row level security;

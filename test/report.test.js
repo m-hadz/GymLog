@@ -43,7 +43,7 @@ test('días entrenados (el que cruza la medianoche cuenta el día en que empezó
 });
 
 test('constancia: semanas con entrenamiento y racha al cierre', () => {
-  assert.deepEqual(monthReport(DATA, 2026, 10, opts).constancy, { weeks: 5, trained: 3, streak: 1 });
+  assert.deepEqual(monthReport(DATA, 2026, 10, opts).constancy, { weeks: 5, trained: 3, streak: 1, cadence: null });
 });
 
 test('récords: cantidad y los más destacados por mejora del 1RM', () => {
@@ -68,7 +68,7 @@ test('primer mes registrado, mes vacío y mes en curso', () => {
   const sep = monthReport(DATA, 2026, 9, opts);
   assert.equal(sep.first, true);
   assert.equal(sep.delta, null);
-  assert.deepEqual(sep.constancy, { weeks: 4, trained: 2, streak: 0 }); // desde el lunes 7 sep (primer entreno el 10), no desde el 31 ago
+  assert.deepEqual(sep.constancy, { weeks: 4, trained: 2, streak: 0, cadence: null }); // desde el lunes 7 sep (primer entreno el 10), no desde el 31 ago
   assert.equal(monthReport(DATA, 2026, 8, opts).empty, true);
   assert.equal(monthReport(DATA, 2026, 11, opts).partial, true);
   const { months, years } = reportPeriods(DATA);
@@ -96,6 +96,15 @@ test('estancados al cierre del mes', () => {
   const r = monthReport(ws, 2026, 10, { ...opts, stallable: () => true });
   assert.deepEqual(r.stalls.list.map((x) => x.id), ['cp']);
   assert.equal(monthReport(ws, 2026, 10, opts).stalls, null);
+});
+
+test('constancia con meta de cadencia: racha al cierre, cortes y promedio de días', () => {
+  const ws = [1, 3, 5, 12, 14].map((d) => W(at(2026, 10, d), { bench: [[100, 5]] }));
+  const r = monthReport(ws, 2026, 10, { ...opts, goal: { mode: 'cadencia', every_days: 2, tolerance: 1 } });
+  assert.equal(r.constancy.cadence.streak, 0); // del 14 al 31 se cortó
+  assert.equal(r.constancy.cadence.breaks, 1); // el 12 empezó una racha nueva
+  assert.equal(r.constancy.cadence.avgGap, 13 / 4);
+  assert.equal(monthReport(ws, 2026, 10, opts).constancy.cadence, null);
 });
 
 test('rendimiento: 2.000 entrenamientos en menos de 100 ms', () => {

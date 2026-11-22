@@ -12,7 +12,7 @@ import { notifications } from '@mantine/notifications';
 import { api } from './api.js';
 
 export const state = {
-  workouts: [], templates: [], exercises: [], exercise_prefs: [], body_metrics: [],
+  workouts: [], templates: [], exercises: [], exercise_prefs: [], body_metrics: [], user_settings: [],
   loaded: false, syncError: null, syncing: false,
 };
 
@@ -48,6 +48,7 @@ const SORTERS = {
   exercises: (a, b) => a.name.localeCompare(b.name),
   exercise_prefs: (a, b) => (a.id < b.id ? -1 : 1),
   body_metrics: (a, b) => (a.date < b.date ? 1 : -1), // más reciente primero
+  user_settings: (a, b) => (a.id < b.id ? -1 : 1),
 };
 
 // Siempre crea una lista nueva: así React (useMemo) detecta el cambio por identidad.
@@ -69,7 +70,7 @@ function applyOp(op) {
 const persistCache = () =>
   writeJSON('cache', {
     workouts: state.workouts, templates: state.templates, exercises: state.exercises, exercise_prefs: state.exercise_prefs,
-    body_metrics: state.body_metrics,
+    body_metrics: state.body_metrics, user_settings: state.user_settings,
   });
 
 export function loadCache() {
@@ -87,6 +88,7 @@ export async function refresh() {
   state.exercises = data.exercises;
   state.exercise_prefs = data.exercise_prefs || [];
   state.body_metrics = data.body_metrics || [];
+  state.user_settings = data.user_settings || [];
   outbox.forEach(applyOp); // los cambios aún no sincronizados siguen ganando
   state.loaded = true;
   persistCache();
@@ -203,4 +205,11 @@ export const prefsOf = (id) => state.exercise_prefs.find((p) => p.id === id) || 
 // valores por defecto lo que falte, así que un cambio parcial borraría lo demás.
 export function savePrefs(id, patch) {
   upsert('exercise_prefs', { ...(prefsOf(id) || {}), ...patch, id });
+}
+
+// Ajustes sincronizados entre dispositivos (tabla user_settings, fila 'me'): meta de constancia y
+// pausas (feature 09). A diferencia de getSettings(), viajan con la cuenta.
+export const syncedSettings = () => state.user_settings.find((r) => r.id === 'me')?.data || {};
+export function saveSyncedSettings(patch) {
+  upsert('user_settings', { id: 'me', data: { ...syncedSettings(), ...patch } });
 }

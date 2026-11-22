@@ -16,7 +16,7 @@ import { kindOf } from '../lib/effective.js';
 import { MIN_YEAR_WORKOUTS, monthReport, reportPeriods, yearReport } from '../lib/report.js';
 import { fmtDate, fmtDuration, fmtNum, fmtSet, fmtVolume, plural } from '../lib/format.js';
 import { navigate } from '../lib/router.js';
-import { state } from '../lib/data.js';
+import { state, syncedSettings } from '../lib/data.js';
 import classes from './report.module.css';
 
 import { monthNameOf as monthName } from './profile/reportNames.js';
@@ -100,6 +100,13 @@ function Constancy({ r }) {
         {' '}Racha al cierre: <b>{plural(c.streak, 'semana', 'semanas')}</b>.
         {r.kind === 'year' ? <> Racha más larga del año: <b>{plural(r.longestStreak, 'semana', 'semanas')}</b>.</> : null}
       </Text>
+      {c.cadence ? (
+        <Text size="sm" mt={6} data-testid="report-cadence">
+          Con tu meta: racha al cierre de <b>{c.cadence.streak} {c.cadence.streak === 1 ? 'seguido' : 'seguidos'}</b>,
+          {' '}{c.cadence.breaks ? <b>{plural(c.cadence.breaks, 'corte', 'cortes')}</b> : 'sin cortes'} en el periodo
+          {c.cadence.avgGap != null ? <>, y un entrenamiento cada <b>{fmtNum(c.cadence.avgGap, 1)} días</b> en promedio</> : null}.
+        </Text>
+      ) : null}
     </Section>
   );
 }
@@ -279,9 +286,11 @@ export function ReportView({ year, month = null }) {
       nameOf: (id, n) => exerciseName(id, n || id),
       partOf: (id) => getExercise(id)?.bodyPart || 'Otro',
       stallable: (id) => kindOf(id) !== 'tiempo',
+      goal: syncedSettings().goal,
+      pauses: syncedSettings().pauses,
     };
     return isYear ? yearReport(workouts, year, opts) : monthReport(workouts, year, month, opts);
-  }, [workouts, year, month, isYear, catalogVersion, state.exercises, state.exercise_prefs]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [workouts, year, month, isYear, catalogVersion, state.exercises, state.exercise_prefs, state.user_settings]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const key = isYear ? String(year) : `${year}-${pad(month)}`;
   const enabled = isYear

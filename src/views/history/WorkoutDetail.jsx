@@ -6,7 +6,7 @@ import {
   IconCopy, IconDots, IconNote, IconPencil, IconPlayerPlay, IconTemplate, IconTrash, IconTrophy, IconConfetti,
   IconClock, IconStack2, IconWeight, IconMoodSad,
 } from '@tabler/icons-react';
-import { useAnalysis, useCatalog } from '../../lib/hooks.js';
+import { useAnalysis, useCatalog, useStreak } from '../../lib/hooks.js';
 import { navigate } from '../../lib/router.js';
 import { remove, upsert, workoutById } from '../../lib/data.js';
 import { exerciseName } from '../../lib/catalog.js';
@@ -38,7 +38,18 @@ function SetLabel({ type, n }) {
   );
 }
 
+// Racha tras guardar (feature 09). Al volver después de un corte, mensaje positivo: nunca se nombra
+// la racha perdida.
+function streakLine(s) {
+  if (s.comeback) return 'Volviste. Primer entrenamiento de una nueva racha.';
+  if (!s.current) return null;
+  if (s.unit === 'entrenamientos') return `Racha: ${s.current} ${s.current === 1 ? 'seguido' : 'seguidos'}.`;
+  if (s.mode === 'semanal' && s.status !== 'cumplida') return `${s.thisWeek} de ${s.perWeek} esta semana.`;
+  return `Semana ${s.current} seguida.`;
+}
+
 function Celebration({ prs }) {
+  const line = streakLine(useStreak());
   return (
     <Card className={classes.celebrate} radius="lg" p="lg">
       <Group wrap="nowrap" gap="md">
@@ -50,6 +61,7 @@ function Celebration({ prs }) {
           <Text size="sm" c="rgba(255,255,255,0.85)" mt={2}>
             {prs ? `Rompiste ${prs} récord${prs > 1 ? 's' : ''} personal${prs > 1 ? 'es' : ''}.` : 'Sin récords nuevos esta vez.'}
           </Text>
+          {line ? <Text size="sm" fw={650} c="white" mt={4} data-testid="celebrate-streak">{line}</Text> : null}
         </Box>
       </Group>
     </Card>

@@ -16,7 +16,7 @@ import { SheetHost } from './components/Sheet.jsx';
 import { notify } from './components/dialogs.jsx';
 import { LoginView } from './views/LoginView.jsx';
 import { TrainView } from './views/TrainView.jsx';
-import { ActiveWorkoutView, TemplateEditView, WorkoutEditView } from './views/WorkoutEditor.jsx';
+import { ActiveWorkoutView, PastWorkoutView, TemplateEditView, WorkoutEditView } from './views/WorkoutEditor.jsx';
 import { HistoryView, WorkoutDetailView, CalendarView } from './views/HistoryView.jsx';
 
 // Pantallas con gráficos (Recharts): se cargan al abrirlas para que la app arranque más liviana.
@@ -35,6 +35,7 @@ const ROUTES = [
   [/^train$/, 'train', () => <TrainView />],
   [/^template\/(.+)$/, 'train', (m) => <TemplateEditView key={m[1]} id={m[1]} />, { editor: true }],
   [/^workout$/, 'train', () => <ActiveWorkoutView />, { editor: true, workout: true }],
+  [/^workout\/new\/edit$/, 'history', (m, q) => <PastWorkoutView key={q?.get('date')} date={q?.get('date')} tpl={q?.get('tpl')} />, { editor: true }],
   [/^workout\/([^/]+)\/edit$/, 'history', (m) => <WorkoutEditView key={m[1]} id={m[1]} />, { editor: true }],
   [/^workout\/([^/]+)$/, 'history', (m, q) => <WorkoutDetailView key={m[1]} id={m[1]} query={q} />],
   [/^history$/, 'history', (m, q) => <HistoryView query={q} />],

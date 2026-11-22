@@ -1,9 +1,14 @@
 // Calendario: un mes por tarjeta (el más reciente primero), días entrenados
-// marcados; al tocar uno se abre el historial filtrado por ese día.
+// marcados; al tocar uno se abre el historial filtrado por ese día. Un día pasado sin entrenamiento
+// permite registrarlo (feature 09); los días de pausa se ven rayados.
 import { useMemo } from 'react';
 import { Box, Button, Card, Group, Stack, Text } from '@mantine/core';
 import { IconCalendarCheck, IconCalendarMonth, IconFlame, IconCalendarStats } from '@tabler/icons-react';
-import { useData } from '../../lib/hooks.js';
+import { useData, useStreak } from '../../lib/hooks.js';
+import { syncedSettings } from '../../lib/data.js';
+import { keyOfDay, pauseDays } from '../../lib/streak.js';
+import { streakTile } from '../streak/StreakCards.jsx';
+import { openRegisterPast } from '../streak/RegisterPast.jsx';
 import { navigate } from '../../lib/router.js';
 import { dayKey, fmtDate, plural } from '../../lib/format.js';
 import { Page, PageHeader } from '../../components/PageHeader.jsx';
@@ -20,20 +25,7 @@ function weekStart(d) {
   return x;
 }
 
-// Semanas consecutivas con al menos un entreno; la semana en curso no corta la racha
-function weekStreak(dates) {
-  const weeks = new Set(dates.map((d) => weekStart(d).getTime()));
-  const cur = weekStart(new Date());
-  if (!weeks.has(cur.getTime())) cur.setDate(cur.getDate() - 7);
-  let n = 0;
-  while (weeks.has(cur.getTime())) {
-    n++;
-    cur.setDate(cur.getDate() - 7);
-  }
-  return n;
-}
-
-function MonthCard({ m, days, today }) {
+function MonthCard({ m, days, today, paused }) {
   const year = m.getFullYear(), month = m.getMonth();
   const count = new Date(year, month + 1, 0).getDate();
   const offset = (m.getDay() + 6) % 7;
@@ -43,6 +35,8 @@ function MonthCard({ m, days, today }) {
   for (let d = 1; d <= count; d++) {
     const key = dayKey(new Date(year, month, d));
     const has = days.has(key);
+    const pause = paused.has(key);
+    const pastEmpty = !has && key < today;
     if (has) trained++;
     cells.push(
       <button
@@ -53,9 +47,11 @@ function MonthCard({ m, days, today }) {
         data-has={has ? 'true' : 'false'}
         data-today={key === today || undefined}
         data-future={key > today || undefined}
-        disabled={!has}
-        onClick={has ? () => navigate(`/history?day=${key}`) : undefined}
-        aria-label={has ? `Ver entrenamientos del ${d}` : undefined}
+        data-pause={pause || undefined}
+        data-past-empty={pastEmpty || undefined}
+        disabled={!has && !pastEmpty}
+        onClick={has ? () => navigate(`/history?day=${key}`) : pastEmpty ? () => openRegisterPast(key) : undefined}
+        aria-label={has ? `Ver entrenamientos del ${d}` : pastEmpty ? `Registrar un entrenamiento el ${d}` : undefined}
       >
         {d}
       </button>,
@@ -78,10 +74,13 @@ function MonthCard({ m, days, today }) {
 }
 
 export function CalendarView() {
-  const { workouts } = useData();
+  const { workouts, user_settings: us } = useData();
   const today = dayKey(new Date());
+  const s = useStreak();
+  const streak = streakTile(s);
+  const paused = useMemo(() => new Set([...pauseDays(syncedSettings().pauses)].map(keyOfDay)), [us]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { days, months, thisMonth, streak } = useMemo(() => {
+  const { days, months, thisMonth } = useMemo(() => {
     const dates = workouts.map((w) => new Date(w.started_at));
     const days = new Set(dates.map(dayKey));
     const now = new Date();
@@ -91,7 +90,7 @@ export function CalendarView() {
       d = new Date(d.getFullYear(), d.getMonth() - 1, 1)) months.push(d);
     const prefix = today.slice(0, 7);
     const thisMonth = [...days].filter((k) => k.startsWith(prefix)).length;
-    return { days, months, thisMonth, streak: weekStreak(dates) };
+    return { days, months, thisMonth };
   }, [workouts, today]);
 
   return (
@@ -114,12 +113,14 @@ export function CalendarView() {
                 label="Racha"
                 icon={IconFlame}
                 color="orange"
-                value={streak}
-                hint={streak === 1 ? 'semana seguida' : 'semanas seguidas'}
+                value={streak.value}
+                hint={streak.hint}
+                data-testid="calendar-streak"
               />
             </StatGrid>
+            <Text size="xs" c="dimmed">Toca un día pasado sin entrenamiento para registrarlo (repara la racha).</Text>
             <Stack gap="sm" mt={4}>
-              {months.map((m) => <MonthCard key={m.getTime()} m={m} days={days} today={today} />)}
+              {months.map((m) => <MonthCard key={m.getTime()} m={m} days={days} today={today} paused={paused} />)}
             </Stack>
           </>
         )}

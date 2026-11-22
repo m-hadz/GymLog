@@ -3,6 +3,7 @@
 // y estancados al cierre. Módulo puro, sin DOM. Ver docs/features/07-resumen-mensual-anual.md.
 import { computePRs, e1rm, isWorking, prCount, sessionsIndex, workoutDuration, workoutVolume } from './stats.js';
 import { stallStatus } from './progression.js';
+import { dayNum, streakStats } from './streak.js';
 
 export const PROGRESS_GAIN = 0.01; // "progresando" si el 1RM estimado sube más de 1 %
 export const CAR_KG = 1500;        // un auto mediano, para el total del año
@@ -208,6 +209,22 @@ function stalls(sorted, start, close, cur, stallable, nameOf, names) {
   };
 }
 
+// Constancia por cadencia (feature 09): racha al cierre, cortes en el periodo y días promedio entre
+// entrenamientos. Solo si la meta es 'cadencia'.
+function cadenceOf(sorted, cur, start, close, goal, pauses) {
+  if (goal?.mode !== 'cadencia') return null;
+  const st = streakStats(sorted.filter((w) => t(w) < +close), goal, pauses || [], new Date(+close - 1));
+  const a = dayNum(start);
+  const b = dayNum(new Date(+close - 1));
+  const days = [...new Set(cur.map((w) => dayNum(w.started_at)))].sort((x, y) => x - y);
+  const gaps = days.slice(1).map((d, i) => d - days[i]);
+  return {
+    streak: st.current,
+    breaks: st.restarts.filter((d) => d >= a && d <= b).length,
+    avgGap: gaps.length ? gaps.reduce((x, y) => x + y, 0) / gaps.length : null,
+  };
+}
+
 function base(workouts, start, end, prevStart, opts) {
   const { now = Date.now(), nameOf = (id, n) => n || id, partOf = () => 'Otro', stallable = null } = opts;
   const sorted = [...workouts].filter((w) => Number.isFinite(t(w))).sort(asc);
@@ -234,7 +251,10 @@ function base(workouts, start, end, prevStart, opts) {
         workouts: pct(T.workouts, P.workouts), ms: pct(T.ms, P.ms), volume: pct(T.volume, P.volume), sets: pct(T.sets, P.sets),
       },
       // En el primer periodo registrado, las semanas se cuentan desde el primer entrenamiento
-      constancy: constancy(sorted, cur, first && cur.length ? new Date(cur[0].started_at) : start, close),
+      constancy: {
+        ...constancy(sorted, cur, first && cur.length ? new Date(cur[0].started_at) : start, close),
+        cadence: cadenceOf(sorted, cur, start, close, opts.goal, opts.pauses),
+      },
       records: records(sorted, inRange(start, end), prs, nameOf),
       topExercises: top,
       progress: progress(cur, prev, nameOf, names),

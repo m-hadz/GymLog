@@ -134,7 +134,9 @@ export async function reportImage(r, { title, subtitle }) {
     `${r.records.count} ${r.records.count === 1 ? 'récord' : 'récords'}${r.records.top[0] ? ` · mejor: ${r.records.top[0].name} +${fmtNum(r.records.top[0].gain * 100, 1)} %` : ''}`,
     r.kind === 'year'
       ? `${fmtNum(r.cars, 0)} autos levantados · racha más larga: ${r.longestStreak} semanas`
-      : `${c.trained} de ${c.weeks} semanas entrenadas · racha: ${c.streak} ${c.streak === 1 ? 'semana' : 'semanas'}`,
+      : c.cadence
+        ? `${c.trained} de ${c.weeks} semanas entrenadas · racha: ${c.cadence.streak} ${c.cadence.streak === 1 ? 'seguido' : 'seguidos'}`
+        : `${c.trained} de ${c.weeks} semanas entrenadas · racha: ${c.streak} ${c.streak === 1 ? 'semana' : 'semanas'}`,
   ];
   ctx.fillStyle = '#fff';
   lines.forEach((line, i) => {

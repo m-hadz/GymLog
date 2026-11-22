@@ -5,6 +5,8 @@ import { IconBarbell, IconCalendarWeek, IconClockHour4, IconFlame, IconWeight } 
 import { StatGrid, StatTile } from '../../components/ui.jsx';
 import { fnum, vol } from '../../charts/charts.jsx';
 import { profileSummary } from './summary.js';
+import { useStreak } from '../../lib/hooks.js';
+import { dueText, streakText } from '../../lib/streak.js';
 import classes from './Profile.module.css';
 
 const monthName = new Intl.DateTimeFormat('es', { month: 'long' });
@@ -12,6 +14,7 @@ const since = new Intl.DateTimeFormat('es', { month: 'short', year: 'numeric' })
 
 export function ProfileHero({ workouts }) {
   const s = useMemo(() => profileSummary(workouts), [workouts]);
+  const streak = useStreak();
   const month = monthName.format(new Date());
 
   return (
@@ -41,9 +44,10 @@ export function ProfileHero({ workouts }) {
           icon={IconFlame}
           color="orange"
           label="Racha"
-          value={`${s.streak} ${s.streak === 1 ? 'semana' : 'semanas'}`}
-          hint={s.streak ? 'seguidas entrenando' : 'Entrena esta semana'}
-          tone={s.streak >= 4 ? 'up' : undefined}
+          value={streakText(streak)}
+          hint={streak.mode === 'cadencia' ? dueText(streak) : streak.current ? 'seguidas entrenando' : 'Entrena esta semana'}
+          tone={streak.current >= 4 ? 'up' : undefined}
+          data-testid="profile-streak"
         />
         <StatTile
           icon={IconWeight}

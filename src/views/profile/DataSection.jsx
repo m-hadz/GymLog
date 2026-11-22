@@ -51,6 +51,9 @@ async function restoreBackup(file) {
     if (prefs.length) upsert('exercise_prefs', prefs);
     const body = Array.isArray(data.body_metrics) ? data.body_metrics.filter((b) => b?.id && b.date) : [];
     if (body.length) upsert('body_metrics', body);
+    // Meta de constancia y pausas (feature 09): solo si aquí aún no hay
+    const us = Array.isArray(data.user_settings) ? data.user_settings.find((r) => r?.id === 'me' && r.data && typeof r.data === 'object') : null;
+    if (us && !state.user_settings.length) upsert('user_settings', { id: 'me', data: us.data });
     if (data.templates.length) upsert('templates', data.templates);
     for (const part of chunks(fresh)) upsert('workouts', part);
     notify.success('Respaldo restaurado');
@@ -99,7 +102,7 @@ export function DataSection() {
             `gymlog-backup-${today()}.json`,
             JSON.stringify({
               workouts: state.workouts, templates: state.templates, exercises: state.exercises,
-              exercise_prefs: state.exercise_prefs, body_metrics: state.body_metrics,
+              exercise_prefs: state.exercise_prefs, body_metrics: state.body_metrics, user_settings: state.user_settings,
             }, null, 1),
             'application/json',
           )}

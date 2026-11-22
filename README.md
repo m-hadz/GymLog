@@ -56,6 +56,14 @@ funciones serverless en Vercel y Postgres gratuito en Supabase.
   semana" y lista los ejercicios sin región para asignarla en 2 toques. El grupo de un ejercicio del
   catálogo ahora se puede corregir (ficha → Músculo). Mini mapa "Músculos trabajados" en el resumen de
   cada entrenamiento.
+- **Meta de constancia y racha reparable** ([feature 09](docs/features/09-constancia-racha.md)): modos
+  "Sin meta" (semanas con al menos uno, como antes), "Cada N días" (día por medio con tolerancia: la
+  racha cuenta entrenamientos seguidos) y "N por semana". Tarjeta en Entrenar ("Hoy toca", "Mañana toca",
+  "Último día para no cortar la racha"), franja de 30 días y mejor racha en el Perfil, pausas de hasta 14
+  días (una cada 6 semanas) y registrar un entrenamiento en un día pasado desde el Calendario (repara la
+  racha). Un solo cálculo (`src/lib/streak.js`) para Entrenar, Calendario, Perfil y el resumen.
+- Tabla nueva `user_settings` (meta y pausas sincronizadas): correr su bloque de `schema.sql` en
+  Supabase. Mientras no exista, la app funciona y la meta queda como cambio pendiente de sincronizar.
 
 ### v0.0.8
 - **Peso corporal y medidas** ([feature 03](docs/features/03-peso-corporal-medidas.md)): Perfil →
@@ -253,6 +261,7 @@ src/
     set-timer.js      Cronómetro de series por tiempo (guarda la hora de inicio)
     stalls.js         Ejercicios estancados (feature 06), cacheado
     report.js         Resumen mensual y anual (feature 07)
+    streak.js         Meta de constancia y racha (feature 09)
     strong-csv.js     Importar/exportar CSV de Strong
     rest-timer.js, plates.js, format.js, router.js, api.js
   components/         Layout (navegación, descanso), encabezados, hojas, diálogos, selector de ejercicios
@@ -260,7 +269,7 @@ src/
   views/              Pantallas: Entrenar, editor, Historial, Ejercicios, Perfil, Lectura
 ```
 
-**API:** `GET /api/bootstrap` (todo), `GET|POST|DELETE /api/{workouts|templates|exercises|exercise_prefs|body_metrics}`
+**API:** `GET /api/bootstrap` (todo), `GET|POST|DELETE /api/{workouts|templates|exercises|exercise_prefs|body_metrics|user_settings}`
 (`POST` acepta un objeto o una lista y hace upsert por `id`; `DELETE ?id=`), `GET /api/health`,
 `GET /api/summary` (último resumen; `?id=` uno concreto; `?list=1` los últimos 20 sin el texto) y
 `GET|POST /api/summary-refresh` (cron con `Authorization: Bearer $CRON_SECRET`, o `x-app-key`; `?force=1`).

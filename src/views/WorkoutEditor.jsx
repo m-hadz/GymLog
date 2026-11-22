@@ -22,7 +22,7 @@ import { previousSets } from '../lib/stats.js';
 import { stopRest } from '../lib/rest-timer.js';
 import { fmtClock, fmtDate, fmtTime, toLocalInput, uid } from '../lib/format.js';
 import { goBack, navigate } from '../lib/router.js';
-import { templateFromWorkout } from '../lib/workout.js';
+import { defaultWorkoutName, templateFromWorkout } from '../lib/workout.js';
 import { ExerciseBlock } from './workout/ExerciseBlock.jsx';
 import { openRestTimer } from './workout/sheets.jsx';
 import classes from './workout/workout.module.css';
@@ -84,7 +84,7 @@ function FormHeader({ title, onCancel, onSave }) {
 }
 
 // ---------- Editor ----------
-function Editor({ mode, doc, update, onSave, onCancel }) {
+function Editor({ mode, doc, update, onSave, onCancel, title }) {
   const settings = useSettings();
   useCatalog();
   useData();
@@ -176,7 +176,7 @@ function Editor({ mode, doc, update, onSave, onCancel }) {
   return (
     <>
       {isActive ? <ActiveHeader doc={doc} onFinish={finish} />
-        : <FormHeader title={isTemplate ? 'Plantilla' : 'Editar entrenamiento'} onCancel={onCancel} onSave={onSave} />}
+        : <FormHeader title={title || (isTemplate ? 'Plantilla' : 'Editar entrenamiento')} onCancel={onCancel} onSave={onSave} />}
       <Page gap="sm">
         <Box mt={4}>
           <TextInput
@@ -330,20 +330,27 @@ export function TemplateEditView({ id }) {
   return <Editor mode="template" doc={doc} update={update} onSave={save} onCancel={done} />;
 }
 
+// Valida y limpia un entrenamiento editado a mano (corregir uno guardado o registrar uno pasado).
+function finalizeEdited(doc) {
+  if (!doc.name?.trim()) { notify.warn('Ponle un nombre'); return null; }
+  if (doc.ended_at && doc.ended_at < doc.started_at) { notify.warn('El término es antes del inicio'); return null; }
+  const final = structuredClone(doc);
+  final.name = final.name.trim();
+  final.exercises.forEach((e) => {
+    e.sets = e.sets.filter((s) => s.reps != null || s.weight != null || s.seconds != null)
+      .map(({ target, fb, ...s }) => ({ ...s, done: true, weight: s.weight ?? 0 }));
+  });
+  final.exercises = final.exercises.filter((e) => e.sets.length);
+  return final;
+}
+
 // ---------- Corregir un entrenamiento guardado ----------
 function WorkoutEditInner({ w }) {
   const [doc, update] = useLocalDoc(() => structuredClone(w));
   const back = () => navigate(`/workout/${w.id}`, { replace: true });
   const save = () => {
-    if (!doc.name?.trim()) { notify.warn('Ponle un nombre'); return; }
-    if (doc.ended_at && doc.ended_at < doc.started_at) { notify.warn('El término es antes del inicio'); return; }
-    const final = structuredClone(doc);
-    final.name = final.name.trim();
-    final.exercises.forEach((e) => {
-      e.sets = e.sets.filter((s) => s.reps != null || s.weight != null || s.seconds != null)
-        .map(({ target, fb, ...s }) => ({ ...s, done: true, weight: s.weight ?? 0 }));
-    });
-    final.exercises = final.exercises.filter((e) => e.sets.length);
+    const final = finalizeEdited(doc);
+    if (!final) return;
     upsert('workouts', final);
     notify.success('Cambios guardados');
     back();
@@ -365,4 +372,38 @@ export function WorkoutEditView({ id }) {
     );
   }
   return <WorkoutEditInner w={w} />;
+}
+
+// ---------- Registrar un entrenamiento en un día pasado (feature 09: reparar la racha) ----------
+// #/workout/new/edit?date=YYYY-MM-DD[&tpl=<id de plantilla>]. Inicio ese día a las 18:00, 1 h; vacío
+// o con los ejercicios de una plantilla (series sin números). No usa el entrenamiento en curso.
+export function PastWorkoutView({ date, tpl }) {
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(date || '');
+  const [doc, update] = useLocalDoc(() => {
+    const start = valid ? new Date(`${date}T18:00:00`) : new Date();
+    const t = tpl ? templateById(tpl) : null;
+    return {
+      id: uid('w_'),
+      name: t?.name || defaultWorkoutName(start),
+      started_at: start.toISOString(),
+      ended_at: new Date(start.getTime() + 36e5).toISOString(),
+      notes: '',
+      template_id: t?.id || null,
+      exercises: (t?.exercises || []).map((e) => ({
+        exercise_id: e.exercise_id,
+        name: exerciseName(e.exercise_id, e.name),
+        rest: e.rest ?? null,
+        notes: '',
+        sets: (e.sets || []).map((s) => ({ type: s.type || 'N', weight: null, reps: null, done: true })),
+      })),
+    };
+  });
+  const save = () => {
+    const final = finalizeEdited(doc);
+    if (!final) return;
+    if (!final.exercises.length) { notify.warn('Anota al menos una serie'); return; }
+    upsert('workouts', final);
+    navigate(`/workout/${final.id}?done=1`, { replace: true });
+  };
+  return <Editor mode="edit" doc={doc} update={update} onSave={save} onCancel={() => goBack('/calendar')} title="Registrar entrenamiento" />;
 }
