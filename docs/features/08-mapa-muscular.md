@@ -174,6 +174,13 @@ Se mantienen las decisiones de v0.0.7 (estímulo directo por grupo, meta única,
 - No implementado: pintar regiones por separado en el dibujo (no hay meta por región) ni la banda del
   rango en el gráfico de series por grupo (la meta es única y el gráfico muestra totales del periodo).
 - Arreglo general: con hojas apiladas, Escape cierra solo la de arriba (antes cerraba todas).
+- **Dibujo nuevo:** el propio de v0.0.7 se reemplazó por el de react-native-body-highlighter v3.2.0
+  (licencia MIT, revisada: permite usar y modificar con el aviso). Solo se copiaron los trazos SVG a
+  `src/views/profile/bodyPaths.js` con el aviso; sin dependencia nueva. Zonas → grupos: chest → Pecho,
+  deltoids → Hombros, biceps, triceps, forearm → Antebrazo, abs + obliques → Core, upper-back → Dorsales,
+  trapezius → Espalda alta, lower-back → Lumbar, gluteal, adductors, quadriceps, hamstring, calves.
+  Abductores no tiene zona en el dibujo (se ve en la lista). Los músculos sin dato se ven apagados.
+  El mapa se carga aparte (61 KB, 28 KB gzip): no aumenta el bundle principal.
 
 ## Pruebas
 

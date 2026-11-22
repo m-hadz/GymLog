@@ -1,12 +1,14 @@
 // Mini mapa de los músculos trabajados en un entrenamiento (feature 08): cada grupo, más intenso
 // cuantas más series directas tuvo. Debajo, la lista en texto (accesible sin depender del color).
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Card, Group, Text } from '@mantine/core';
 import { getExercise } from '../../lib/catalog.js';
 import { isWorking } from '../../lib/stats.js';
 import { MUSCLE_GROUPS } from '../../lib/muscles.js';
-import { BodyMap } from '../profile/BodyMap.jsx';
 import classes from './history.module.css';
+
+// El dibujo (≈60 KB de trazos) se carga aparte para no pesar en el arranque
+const BodyMap = lazy(() => import('../profile/BodyMap.jsx').then((m) => ({ default: m.BodyMap })));
 
 /** Series efectivas por grupo de un entrenamiento, de mayor a menor (sin grupo → fuera). */
 export function workoutMuscles(w) {
@@ -29,7 +31,9 @@ export function WorkoutMuscles({ w }) {
   return (
     <Card withBorder className={classes.surfaceCard} padding="md" data-testid="workout-muscles">
       <Text fw={650} mb={8}>Músculos trabajados</Text>
-      <BodyMap compact colorOf={(p) => (by.has(p) ? shade(by.get(p)) : 'transparent')} selected={selected} onSelect={(p) => setSelected(by.has(p) && p !== selected ? p : null)} />
+      <Suspense fallback={<div style={{ height: 220 }} />}>
+        <BodyMap compact colorOf={(p) => (by.has(p) ? shade(by.get(p)) : 'transparent')} selected={selected} onSelect={(p) => setSelected(by.has(p) && p !== selected ? p : null)} />
+      </Suspense>
       <Group gap={6} mt="sm" justify="center">
         {list.map(([part, n]) => (
           <Text
