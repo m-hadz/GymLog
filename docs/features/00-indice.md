@@ -2,7 +2,7 @@
 
 Especificaciones de las 12 features elegidas a partir de la investigación del 2026-11-20 (4 agentes:
 competencia directa, apps de progresión, análisis y hábito, y lo que piden los usuarios). Implementadas:
-01 y la base común A (tabla) y B (`src/lib/loads.js`), en v0.0.6; 02 y una primera versión de 08 en v0.0.7; 03 en v0.0.8; 04 (sin superseries), 05, 06, 07, el resto de 08 (regiones, grupo editable, mini mapa), 09, 10 y 11 en v0.0.9; 12 en v0.1. Las 12 están implementadas. Cada documento trae: problema, evidencia, qué hay hoy en el código, reglas, interfaz,
+01 y la base común A (tabla) y B (`src/lib/loads.js`), en v0.0.6; 02 y una primera versión de 08 en v0.0.7; 03 en v0.0.8; 04 (sin superseries), 05, 06, 07, el resto de 08 (regiones, grupo editable, mini mapa), 09, 10 y 11 en v0.0.9; 12 en v0.1. Las 12 están implementadas; la ronda 2 (13–22) está más abajo. Cada documento trae: problema, evidencia, qué hay hoy en el código, reglas, interfaz,
 cambios de datos, casos borde, qué no incluye, **criterios de aceptación** y pruebas.
 
 > Sobre la evidencia: ningún agente pudo leer Reddit (bloquea el acceso automático) y Strong y Hevy
@@ -46,6 +46,39 @@ progresión sugiere **cómo superar ese 1RM**, y las cargas respetan el **mínim
 
 02 y 12 quedan al final porque no calzan con la forma de entrenar actual (no se registran
 calentamientos; no se usan programas por porcentaje), pero se mantienen documentadas.
+
+## Ronda 2 (13–22), en el orden sugerido
+
+Investigación del 2026-11-22 con 6 agentes, uno por eje: experiencia en el gimnasio, diseño visual y
+accesibilidad, seguridad y privacidad, progreso y análisis, confiabilidad y datos, plataforma e
+integraciones. Cada uno propuso un top 8 (48 ideas). Se juntaron las repetidas y se eligieron 10 según
+el contexto de arriba. Las 01–12 se mantienen como registro de lo implementado.
+
+| Orden | # | Feature | Esfuerzo | Depende de |
+|---|---|---|---|---|
+| 1 | [20](20-arranque-y-actualizaciones.md) | Arranque rápido y sin pantallas en blanco (bundle a la mitad, ErrorBoundary, actualizaciones) | S–M | — |
+| 2 | [21](21-acceso-seguro.md) | Acceso más seguro (límite de intentos, cabeceras, cerrar sesión, rotar la clave, topes) | S | — |
+| 3 | [18](18-respaldo-automatico.md) | Respaldo automático fuera de Supabase e historial de cambios | S–M | — |
+| 4 | [19](19-sincronizacion-confiable.md) | Sincronización y almacenamiento confiables | M–L | — |
+| 5 | [13](13-anotar-con-un-toque.md) | Anotar la serie con un toque; fila legible y fácil de tocar | M | 01, base común B |
+| 6 | [14](14-descanso-visible-y-siguiente.md) | Descanso que se nota con la app abierta, y qué sigue | S–M | 11 |
+| 7 | [16](16-datos-limpios.md) | Datos limpios: errores de tipeo, "otra máquina" y deshacer | S–M | base común A |
+| 8 | [15](15-entrenamiento-agil.md) | Entrenamiento de 14 ejercicios más ágil (plegar, saltar, reordenar, hora de cada serie) | M | — |
+| 9 | [17](17-indice-fuerza-ritmo.md) | Índice de fuerza y ritmo de progreso (tendencia, %/mes, mapa por progreso) | M | mejor con 16 |
+| 10 | [22](22-salud-y-atajos.md) | Apple Salud con Atajos: peso diario, enviar el entrenamiento, respaldo a iCloud | S | 03; mejor con 19 |
+
+Primero lo que protege los datos y la app (20, 21, 18, 19); después lo que más se nota en el gimnasio
+(13, 14); al final el análisis y las integraciones.
+
+**Quedaron fuera de la ronda 2:**
+- Aviso diario "Hoy toca" con número en el ícono (push con contenido, RFC 8291).
+- Calendario suscrito (ICS) para verlo en widgets y en el reloj.
+- Efecto del orden de los ejercicios y del descanso (2 o 3 días) en el rendimiento.
+- Calibrar la fórmula reps → 1RM con el historial propio.
+- Metas por ejercicio con fecha estimada (usaría el ritmo de 17).
+- Escuchar la lectura del día.
+- Compartir un entrenamiento como texto o imagen.
+- Cerrar las hojas deslizando hacia abajo, respetar "Reducir movimiento" y el tamaño de letra de iOS.
 
 ## Base común
 
