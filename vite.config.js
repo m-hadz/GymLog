@@ -32,6 +32,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
+        importScripts: ['/push-sw.js'], // aviso de fin de descanso por push (feature 11)
         runtimeCaching: [
           {
             urlPattern: /\/exercises\.json$/,

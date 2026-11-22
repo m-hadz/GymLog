@@ -2,6 +2,7 @@
 // sigue siendo exacto aunque el teléfono bloquee la pantalla o recargues la app.
 // La interfaz (components/RestTimer.jsx) se suscribe con restChannel.
 import { getSettings } from './data.js';
+import { cancelAlert, closeRestNotifications, forgetAlert, moveAlert, scheduleAlert } from './push.js';
 
 let audioCtx;
 let tick;
@@ -51,7 +52,13 @@ export function beep() {
 function check() {
   const { end } = snapshot;
   if (end && end - Date.now() <= 0) {
-    stopRest();
+    write(0, 0);
+    // Con la app a la vista suena aquí y el aviso push sobra: se cancela y, si igual llega, se cierra.
+    // En segundo plano no se toca: el servidor lo envía (feature 11).
+    if (document.visibilityState === 'visible') {
+      cancelAlert();
+      closeRestNotifications();
+    } else forgetAlert();
     beep();
   }
 }
@@ -64,7 +71,9 @@ export function unlockAudio() {
 export function startRest(seconds) {
   if (!seconds || seconds <= 0) return;
   unlockAudio();
-  write(Date.now() + seconds * 1000, seconds * 1000);
+  const end = Date.now() + seconds * 1000;
+  write(end, seconds * 1000);
+  scheduleAlert(end);
   ensureTicking();
 }
 
@@ -74,10 +83,13 @@ export function addRest(delta) {
   const next = end + delta * 1000;
   if (next <= Date.now()) { stopRest(); return; }
   write(next, Math.max(total + delta * 1000, next - Date.now()));
+  moveAlert(next);
 }
 
+/** Saltar el descanso, o terminar/descartar el entrenamiento: también cancela el aviso push. */
 export function stopRest() {
   write(0, 0);
+  cancelAlert();
 }
 
 export function ensureTicking() {

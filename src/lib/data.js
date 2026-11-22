@@ -185,6 +185,7 @@ const DEFAULT_SETTINGS = {
   sex: null, height: null, bodyMeasures: ['cintura'],
   resetPct: 10, // % que baja el reinicio de un ejercicio estancado (feature 06, 5–15)
   dumbbellMode: null, // modo de carga para mancuernas sin modo elegido ("para todas las mancuernas", feature 05)
+  restPush: false, pushSubId: null, // aviso de fin de descanso por push en este teléfono (feature 11)
   countBodyweight: true, // contar el peso corporal en el volumen (feature 04)
   muscleTarget: 8, // series directas por semana para que un músculo esté "Bien" (mapa del cuerpo)
 };

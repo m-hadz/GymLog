@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { state, dataChannel, activeChannel, settingsChannel, getActive, getSettings } from './data.js';
 import { catalogChannel } from './catalog.js';
 import { restChannel, getRest } from './rest-timer.js';
+import { alertChannel, getAlert } from './push.js';
 import { analysisWorkouts } from './effective.js';
 import { stallMap } from './stalls.js';
 import { streakStats } from './streak.js';
@@ -48,6 +49,8 @@ export function useCatalog() {
 export const useActiveWorkout = () => useSyncExternalStore(activeChannel.subscribe, getActive);
 export const useSettings = () => useSyncExternalStore(settingsChannel.subscribe, getSettings);
 export const useRest = () => useSyncExternalStore(restChannel.subscribe, getRest);
+// Aviso push del descanso en curso (feature 11): null | {id, status: 'pending'|'ok'|'failed'}
+export const useRestAlert = () => useSyncExternalStore(alertChannel.subscribe, getAlert);
 
 // Fecha actual que se actualiza cada `ms` (relojes, cronómetros).
 export function useNow(ms = 1000, enabled = true) {

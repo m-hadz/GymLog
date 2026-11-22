@@ -93,6 +93,15 @@ test('supabase: headers, upsert y paginación', async () => {
     const post = calls.at(-1);
     assert.match(post.url, /on_conflict=id/);
     assert.match(post.opts.headers.Prefer, /merge-duplicates/);
+    // feature 11: reclamar una alerta (PATCH con filtros, devuelve las filas) y borrar con filtros
+    await store.update('rest_alerts', { id: 'eq.a1', status: 'eq.pending', end_at: 'lte.2026-11-21T20:00:00.000Z' }, { status: 'sent' });
+    const patch = calls.at(-1);
+    assert.equal(patch.opts.method, 'PATCH');
+    assert.match(patch.url, /rest_alerts\?id=eq\.a1&status=eq\.pending&end_at=lte\.2026-11-21T20%3A00%3A00\.000Z$/);
+    assert.equal(patch.opts.headers.Prefer, 'return=representation');
+    await store.removeWhere('rest_alerts', { subscription_id: 'eq.s_1', id: 'neq.a1' });
+    assert.equal(calls.at(-1).opts.method, 'DELETE');
+    assert.match(calls.at(-1).url, /rest_alerts\?subscription_id=eq\.s_1&id=neq\.a1$/);
   } finally {
     globalThis.fetch = realFetch;
     delete process.env.SUPABASE_URL;
