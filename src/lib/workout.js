@@ -10,9 +10,10 @@ import { defaultIncrement, knownWeights } from './loads.js';
 import { suggest } from './progression.js';
 import { DEFAULT_SCHEME, warmupSets } from './warmup.js';
 import { stopRest } from './rest-timer.js';
-import { uid } from './format.js';
+import { num, uid } from './format.js';
 import { navigate } from './router.js';
-import { confirmDialog } from '../components/dialogs.jsx';
+import { programLoad, setTrainingMax, tmOf } from './tm.js';
+import { confirmDialog, promptDialog } from '../components/dialogs.jsx';
 
 export function defaultWorkoutName(d = new Date()) {
   const hr = d.getHours();
@@ -32,6 +33,21 @@ export async function startWorkout({ template = null, from = null } = {}) {
     stopRest();
   }
   const src = template || from;
+  // Series en % del máximo de entrenamiento (feature 12): sin máximo, se pide ahora
+  const tms = {};
+  for (const e of template?.exercises || []) {
+    if (tms[e.exercise_id] || !(e.sets || []).some((s) => s.pct > 0)) continue;
+    let tm = tmOf(e.exercise_id);
+    if (!tm) {
+      tm = num(await promptDialog({
+        title: 'Máximo de entrenamiento', label: `${exerciseName(e.exercise_id, e.name)}: tu máximo de entrenamiento (kg)`,
+        placeholder: 'Por ejemplo, 90 % de tu 1RM', confirmLabel: 'Empezar',
+      }));
+      if (!(tm > 0)) return false;
+      setTrainingMax(e.exercise_id, tm, 'manual');
+    }
+    tms[e.exercise_id] = tm;
+  }
   const w = {
     id: uid('w_'),
     name: src?.name || defaultWorkoutName(),
@@ -41,18 +57,22 @@ export async function startWorkout({ template = null, from = null } = {}) {
     template_id: template?.id || null,
     exercises: (src?.exercises || []).map((e) => {
       const sets = (e.sets || []).filter((s) => s.done !== false)
-        .map((s) => ({ type: s.type || 'N', weight: null, reps: null, done: false, target: targetOf(s) }));
+        .map((s) => ({
+          type: s.type || 'N', weight: null, reps: null, done: false,
+          target: targetOf(s, e.exercise_id, tms[e.exercise_id]), ...(s.amrap ? { amrap: true } : {}),
+        }));
       const ex = {
         exercise_id: e.exercise_id,
         name: exerciseName(e.exercise_id, e.name),
         rest: e.rest ?? null,
         notes: '',
         sets,
+        ...(e.prog ? { prog: e.prog } : {}), // ejercicio de un programa (feature 12): T1/T2/T3 o principal
       };
       if (template && e.auto_warmup && kindOf(e.exercise_id) === 'peso_reps') {
         ex.auto_warmup = true;
         if (!sets.some((s) => s.type === 'W')) {
-          const work = startWeight(e.exercise_id, sets, template.id);
+          const work = startWeight(e.exercise_id, sets, template.id, !!e.prog || e.sets.some((s) => s.pct > 0));
           ex.sets = [...warmupFor(ex, work).map((w) => ({ type: 'W', weight: w.weight, reps: w.reps, done: false })), ...sets];
         }
       }
@@ -89,9 +109,10 @@ export function warmupFor(ex, work, workouts = state.workouts, settings = getSet
 }
 
 // Peso de trabajo al empezar: objetivo para superar → objetivo de la plantilla → vez anterior.
-function startWeight(exId, sets, templateId) {
+function startWeight(exId, sets, templateId, prescribed = false) {
   const settings = getSettings();
   const first = sets.find((s) => s.type !== 'W' && s.type !== 'D');
+  if (prescribed && first?.target?.weight) return first.target.weight; // lo fija el programa o el % del máximo
   if (settings.suggest !== false) {
     const ctx = loadContext({ exercise_id: exId });
     const g = suggest({
@@ -121,7 +142,10 @@ export function templateFromWorkout(w, name = w.name) {
   };
 }
 
-const targetOf = (s) => ({ weight: s.weight, reps: s.reps, ...(s.seconds ? { seconds: s.seconds } : {}) });
+// Objetivo de una serie de plantilla; en % del máximo, el peso armable más cercano (feature 12)
+const targetOf = (s, exId, tm) => (s.pct > 0 && tm
+  ? { weight: programLoad(exId, (tm * s.pct) / 100), reps: s.reps, pct: s.pct }
+  : { weight: s.weight, reps: s.reps, ...(s.seconds ? { seconds: s.seconds } : {}) });
 
 // Compara una serie recién marcada con tu historial:
 // 'pr' = mejor que nunca, 'up' / 'eq' / 'down' = frente a la misma serie de la vez anterior.

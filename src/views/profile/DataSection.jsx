@@ -54,6 +54,9 @@ async function restoreBackup(file) {
     // Meta de constancia y pausas (feature 09): solo si aquí aún no hay
     const us = Array.isArray(data.user_settings) ? data.user_settings.find((r) => r?.id === 'me' && r.data && typeof r.data === 'object') : null;
     if (us && !state.user_settings.length) upsert('user_settings', { id: 'me', data: us.data });
+    // Programas (feature 12): los que aún no existen aquí
+    const progs = Array.isArray(data.programs) ? data.programs.filter((p) => p?.id && !state.programs.some((x) => x.id === p.id)) : [];
+    if (progs.length) upsert('programs', progs);
     if (data.templates.length) upsert('templates', data.templates);
     for (const part of chunks(fresh)) upsert('workouts', part);
     notify.success('Respaldo restaurado');
@@ -103,6 +106,7 @@ export function DataSection() {
             JSON.stringify({
               workouts: state.workouts, templates: state.templates, exercises: state.exercises,
               exercise_prefs: state.exercise_prefs, body_metrics: state.body_metrics, user_settings: state.user_settings,
+              programs: state.programs,
             }, null, 1),
             'application/json',
           )}

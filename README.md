@@ -30,7 +30,23 @@ funciones serverless en Vercel y Postgres gratuito en Supabase.
 - **Tus datos:** importar el CSV de Strong (sin duplicar si lo reimportas; convierte libras a
   kg), exportar en formato Strong, descargar y restaurar un respaldo JSON (se combina, no borra).
 
-### Nuevo en v0.0.9
+### Nuevo en v0.1
+- **Programas por porcentaje del máximo** ([feature 12](docs/features/12-programas-porcentaje.md)): Entrenar →
+  "Programas" → **5/3/1** (4 días, semanas 65/75/85 % × 5, 70/80/90 % × 3, 75/85/95 % × 5/3/1, la última
+  serie "al máximo"; descarga opcional) o **GZCLP** (A1/B1/A2/B2 con T1 5 × 3+ → 6 × 2+ → 10 × 1+ → prueba
+  de 5RM, T2 3 × 10 → 8 → 6, T3 3 × 15+ que sube con 25 reps). Asistente de 3 pasos con máximos y pesos
+  sugeridos desde tu historial. Tarjeta en Entrenar con el día que toca, "Empezar", saltar, repetir,
+  cambiar de semana y pausar; al terminar, el resumen dice qué cambia la próxima vez y, al cerrar un ciclo
+  de 5/3/1, ofrece subir los máximos (+2,5 kg superior, +5 kg inferior, con opción de excluir uno).
+- **Máximo de entrenamiento** por ejercicio en su ficha, con el sugerido (90 % del mejor 1RM estimado de 3
+  meses) y el historial de cambios. **Series en % del máximo** y **"reps al máximo" (5+)** en cualquier
+  plantilla (menú del número de serie). Los pesos se redondean a lo que se puede armar con tu barra y discos.
+- Tabla nueva `programs`: correr su bloque de `schema.sql` en Supabase. Las plantillas de cada programa
+  son plantillas normales, en una carpeta con su nombre (no aparecen en "Mis plantillas").
+- `api/[resource].js`: los recursos sin archivo propio (`user_settings`, `programs`) van por una sola
+  función, para no pasar el máximo de 12 del plan Hobby de Vercel.
+
+### v0.0.9
 - **Tipos de ejercicio** ([feature 04](docs/features/04-pendientes-validados.md)): en Ajustes del
   ejercicio, *peso y reps*, *peso corporal*, *con lastre* (anotas lo agregado), *asistido* (anotas la
   asistencia) o *por tiempo*. Volumen, 1RM y récords usan la carga real con tu peso corporal (ajuste
@@ -258,13 +274,13 @@ lib/summary.js        Lectura del día: RSS de YouTube, Supadata, OpenAI y refre
 lib/webpush.js        Web Push sin contenido: JWT VAPID (ES256) con node:crypto, sin dependencias
 lib/push-api.js       /api/push-subscribe y /api/rest-alert: esperar hasta el fin del descanso y avisar
 public/push-sw.js     Service worker del aviso (lo importa el de Workbox): muestra "Descanso terminado"
-schema.sql            9 tablas: workouts, templates, exercises (series en JSONB),
+schema.sql            10 tablas: workouts, templates, exercises (series en JSONB), programs,
                       exercise_prefs (ajustes por ejercicio, id = exercise_id),
                       body_metrics (peso y medidas, id = fecha), user_settings (meta),
                       push_subscriptions y rest_alerts (aviso de descanso) y
                       video_summaries (resúmenes de YouTube, id = video_id)
-api/                  12 archivos: el máximo de funciones del plan Hobby de Vercel. Para
-                      agregar otra, juntar recursos en un mismo archivo.
+api/                  Una función por recurso más api/[resource].js para el resto (el plan
+                      Hobby de Vercel admite 12 funciones; hoy son 12).
 dev-server.js         /api + Vite en desarrollo (o ./dist con --dist)
 index.html            Entrada de Vite
 public/               Íconos de la app (los PNG se generan con scripts/make-icons.mjs)
@@ -289,6 +305,9 @@ src/
     stalls.js         Ejercicios estancados (feature 06), cacheado
     report.js         Resumen mensual y anual (feature 07)
     streak.js         Meta de constancia y racha (feature 09)
+    programs.js       5/3/1 y GZCLP: plan de cada día, progresión, máximo sugerido (feature 12, puro)
+    program-runtime.js  Programas en la app: guardar, generar sus plantillas, procesar cada día
+    tm.js             Máximo de entrenamiento por ejercicio, su historial y pesos armables
     push.js           Aviso de fin de descanso por push: suscripción y alertas (feature 11)
     substitutes.js    Sugerencias para reemplazar un ejercicio y traspaso de series (feature 10)
     strong-csv.js     Importar/exportar CSV de Strong
@@ -299,7 +318,8 @@ src/
 ```
 
 **API:** `GET /api/bootstrap` (todo), `GET|POST|DELETE /api/{workouts|templates|exercises|exercise_prefs|body_metrics|user_settings}`,
-`GET|POST|DELETE /api/push-subscribe`, `POST|PUT|DELETE /api/rest-alert` (feature 11)
+`GET|POST|DELETE /api/programs` (feature 12), `GET|POST|DELETE /api/push-subscribe`,
+`POST|PUT|DELETE /api/rest-alert` (feature 11)
 (`POST` acepta un objeto o una lista y hace upsert por `id`; `DELETE ?id=`), `GET /api/health`,
 `GET /api/summary` (último resumen; `?id=` uno concreto; `?list=1` los últimos 20 sin el texto) y
 `GET|POST /api/summary-refresh` (cron con `Authorization: Bearer $CRON_SECRET`, o `x-app-key`; `?force=1`).

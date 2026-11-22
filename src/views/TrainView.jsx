@@ -18,6 +18,8 @@ import { workoutVolume } from '../lib/stats.js';
 import { fmtClock, fmtDate, fmtVolume, plural, uid } from '../lib/format.js';
 import { navigate } from '../lib/router.js';
 import { startWorkout } from '../lib/workout.js';
+import { programOfTemplate } from '../lib/program-runtime.js';
+import { ProgramCard, ProgramIcon, openPrograms } from './programs/ProgramViews.jsx';
 import classes from './workout/workout.module.css';
 
 const monday = (d) => {
@@ -158,11 +160,13 @@ function TemplateCard({ t, lastDone }) {
 }
 
 export function TrainView() {
-  const { workouts, templates } = useData();
+  const { workouts, templates, programs } = useData();
   useCatalog();
   const analysis = useAnalysis();
   const stats = useMemo(() => weekStats(analysis), [analysis]);
   const streak = useStreak();
+  // Las plantillas de los programas (feature 12) se usan desde la tarjeta del programa
+  const own = useMemo(() => templates.filter((t) => !programOfTemplate(t.id)), [templates, programs]); // eslint-disable-line react-hooks/exhaustive-deps
   const lastDone = useMemo(() => {
     const m = new Map();
     for (const w of workouts) if (w.template_id && !m.has(w.template_id)) m.set(w.template_id, w.started_at);
@@ -174,16 +178,25 @@ export function TrainView() {
       <PageHeader
         title="Entrenar"
         right={(
-          <Button
-            variant="light" size="compact-md" radius="xl" leftSection={<IconPlus size={16} />}
-            onClick={() => navigate('/template/new')} data-testid="new-template"
-          >
-            Plantilla
-          </Button>
+          <Group gap={6} wrap="nowrap">
+            <Button
+              variant="subtle" size="compact-md" radius="xl" leftSection={<ProgramIcon size={16} />}
+              onClick={openPrograms} data-testid="programs-open"
+            >
+              Programas
+            </Button>
+            <Button
+              variant="light" size="compact-md" radius="xl" leftSection={<IconPlus size={16} />}
+              onClick={() => navigate('/template/new')} data-testid="new-template"
+            >
+              Plantilla
+            </Button>
+          </Group>
         )}
       />
       <Page>
         <Hero />
+        <ProgramCard />
         <ConstancyCard />
         <StatGrid cols={3}>
           <StatTile label="Esta semana" value={stats.count} hint={stats.count === 1 ? 'entrenamiento' : 'entrenamientos'} icon={IconCalendarWeek} />
@@ -191,10 +204,10 @@ export function TrainView() {
           <StatTile label="Racha" {...streakTile(streak)} icon={IconFlame} color="orange" data-testid="train-streak" />
         </StatGrid>
 
-        <SectionTitle>Mis plantillas ({templates.length})</SectionTitle>
-        {templates.length ? (
+        <SectionTitle>Mis plantillas ({own.length})</SectionTitle>
+        {own.length ? (
           <Stack gap="sm">
-            {templates.map((t) => <TemplateCard key={t.id} t={t} lastDone={lastDone.get(t.id)} />)}
+            {own.map((t) => <TemplateCard key={t.id} t={t} lastDone={lastDone.get(t.id)} />)}
           </Stack>
         ) : (
           <Card withBorder className={classes.templateCard}>

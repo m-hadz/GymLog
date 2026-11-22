@@ -837,6 +837,114 @@ try {
   await pp.close();
   step('aviso push: activar, alerta al descansar, +15 s la mueve, saltar la cancela, sin conexión, desactivar');
 
+  // 12i. Programas (feature 12): crear un 5/3/1 con TM 100 en sentadilla, hacer el día 1 y ver el día 2
+  await tab('train');
+  await tid('programs-open').click();
+  await tid('new-531').click();
+  await visible(tid('program-wizard'));
+  const pickSlot = async (slot, q, name) => {
+    await tid(`slot-${slot}`).click();
+    await tid('picker').last().getByTestId('exercise-search').fill(q);
+    await tid('picker').last().getByTestId('exercise-row').filter({ hasText: name }).first().click();
+    await visible(tid(`slot-${slot}`).getByText(name));
+  };
+  await pickSlot('squat', 'barbell squat', 'Barbell Squat');
+  await pickSlot('bench', 'bench press (b', 'Bench Press (Barbell)');
+  await pickSlot('deadlift', 'deadlift', 'Deadlift (Barbell)');
+  await pickSlot('ohp', 'shrug', 'Barbell Shrug');
+  await tid('wizard-next').click();
+  for (const [k, v] of [['squat', '100'], ['bench', '80'], ['deadlift', '140'], ['ohp', '50']]) await tid(`wizard-tm-${k}`).fill(v);
+  await tid('wizard-next').click();
+  await tid('wizard-create').click();
+  await visible(tid('program-card'));
+  assert.equal((await tid('program-position').innerText()).trim(), 'Semana 1 · Día 1 · Barbell Squat');
+  assert.equal((await tid('program-day-sets').first().innerText()).trim(), '65 × 5 · 75 × 5 · 85 × 5+');
+  await expectCount(tid('template-card').filter({ hasText: '5/3/1 ·' }), 0); // sus plantillas no van en "Mis plantillas"
+  await tid('program-wizard-sheet').waitFor({ state: 'detached' });
+  await shot('12i-programa');
+  // Empezar: pesos del programa (no los de la vez anterior), la última serie "5+"
+  await tid('program-start').click();
+  const sq531 = cards().first();
+  await visible(sq531.getByText('Barbell Squat'));
+  const ph = async (i, what) => sq531.getByTestId(what).nth(i).getAttribute('placeholder');
+  assert.deepEqual([await ph(0, 'set-weight'), await ph(1, 'set-weight'), await ph(2, 'set-weight')], ['65', '75', '85']);
+  assert.equal(await ph(2, 'set-reps'), '5+');
+  await expectCount(sq531.getByTestId('goal-line'), 0); // el programa manda: sin "Para superar"
+  for (const i of [0, 1, 2]) await sq531.getByTestId('set-check').nth(i).click();
+  await expectValue(sq531.getByTestId('set-weight').nth(2), '85');
+  await tid('finish-workout').click();
+  await confirmUntil(text('¡Entrenamiento guardado!'));
+  await visible(tid('program-result').getByText('Próximo: semana 1, Bench Press (Barbell)'));
+  await shot('12i-resultado');
+  // Día 2: press banca con TM 80 → 52,5 (65 % = 52, armable) · 60 · 67,5 (85 % = 68)
+  await tab('train');
+  await visible(tid('program-position').getByText('Semana 1 · Día 2 · Bench Press (Barbell)'));
+  assert.equal((await tid('program-day-sets').first().innerText()).trim(), '52,5 × 5 · 60 × 5 · 67,5 × 5+');
+  // Saltar y repetir
+  await tid('program-menu').click();
+  await tid('program-skip').click();
+  await visible(tid('program-position').getByText('Semana 1 · Día 3 · Deadlift (Barbell)'));
+  await tid('program-menu').click();
+  await tid('program-repeat').click();
+  await visible(tid('program-position').getByText('Semana 1 · Día 2 · Bench Press (Barbell)'));
+  // Semana 3 de sentadilla: 75 × 5, 85 × 3, 95 × 1+
+  await tid('program-menu').click();
+  await tid('program-week').click();
+  await tid('program-week-3').click();
+  await visible(tid('program-position').getByText('Semana 3 · Día 1 · Barbell Squat'));
+  assert.equal((await tid('program-day-sets').first().innerText()).trim(), '75 × 5 · 85 × 3 · 95 × 1+');
+  await expectCount(tid('program-week-4'), 0); // sin descarga no hay semana 4
+  await page.keyboard.press('Escape');
+  // Se guarda en el servidor: programa, plantillas de los 4 días y máximos
+  await page.waitForTimeout(500);
+  const prog = Object.values(db().programs || {});
+  assert.equal(prog.length, 1);
+  assert.deepEqual([prog[0].kind, prog[0].state.week, prog[0].state.day], ['531', 3, 1]);
+  assert.equal(prog[0].config.templates.filter((id) => db().templates[id]).length, 4);
+  assert.equal(db().exercise_prefs.Barbell_Squat.training_max, 100);
+  // Ficha: máximo de entrenamiento con su historial
+  await tab('exercises');
+  await page.getByTestId('exercise-search').fill('barbell squat');
+  await page.getByTestId('exercise-row').filter({ hasText: 'Barbell Squat' }).first().click();
+  await visible(tid('tm-card'));
+  assert.equal((await tid('tm-value').innerText()).trim(), '100 kg');
+  await visible(tid('tm-log-row').getByText(/100 kg · al crear el programa/));
+  // Pausar: la tarjeta desaparece de Entrenar
+  await tab('train');
+  await tid('program-menu').click();
+  await tid('program-pause').click();
+  await expectCount(tid('program-card'), 0);
+  // GZCLP: asistente con pesos iniciales, día A1 con T1, T2 y T3
+  await tid('programs-open').click();
+  await visible(tid('program-row').getByText(/en pausa/));
+  await tid('new-gzclp').click();
+  await pickSlot('squat', 'barbell squat', 'Barbell Squat');
+  await pickSlot('bench', 'bench press (b', 'Bench Press (Barbell)');
+  await pickSlot('deadlift', 'deadlift', 'Deadlift (Barbell)');
+  await pickSlot('ohp', 'shrug', 'Barbell Shrug');
+  await pickSlot('A', 'lat pulldown', 'Wide-Grip Lat Pulldown');
+  await pickSlot('B', 'reverse barbell', 'Reverse Barbell Curl');
+  await tid('wizard-next').click();
+  for (const k of ['squat', 'bench', 'deadlift', 'ohp']) {
+    await tid(`wizard-t1-${k}`).fill('60');
+    await tid(`wizard-t2-${k}`).fill('40');
+  }
+  for (const k of ['A', 'B']) await tid(`wizard-t3-${k}`).fill('20');
+  await tid('wizard-next').click();
+  await tid('wizard-create').click();
+  await visible(tid('program-position').getByText('Sesión A1'));
+  assert.deepEqual(await tid('program-day-sets').allInnerTexts(), ['60 × 3 · 60 × 3 · 60 × 3 · 60 × 3 · 60 × 3+', '40 × 10 · 40 × 10 · 40 × 10', '20 × 15 · 20 × 15 · 20 × 15+']);
+  await tid('program-start').click();
+  await expectCount(cards(), 3);
+  await visible(cards().nth(0).getByText(/· T1/));
+  await visible(cards().nth(2).getByText(/· T3/));
+  await tid('cancel-workout').click();
+  await tid('confirm-ok').click();
+  await tid('program-menu').click();
+  await tid('program-pause').click();
+  await expectCount(tid('program-card'), 0);
+  step('programas: 5/3/1 con TM 100 → 65/75/85×5+, día hecho, día 2 con 52,5/60/67,5, saltar, repetir, semana 3, ficha, pausar; GZCLP A1');
+
   // 13. Lectura del día: estado vacío y error claro si falta configurar el canal
   await tab('reading');
   await visible(text('Todavía no hay resúmenes'));

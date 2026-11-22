@@ -12,7 +12,7 @@ import { notifications } from '@mantine/notifications';
 import { api } from './api.js';
 
 export const state = {
-  workouts: [], templates: [], exercises: [], exercise_prefs: [], body_metrics: [], user_settings: [],
+  workouts: [], templates: [], exercises: [], exercise_prefs: [], body_metrics: [], user_settings: [], programs: [],
   loaded: false, syncError: null, syncing: false,
 };
 
@@ -49,6 +49,7 @@ const SORTERS = {
   exercise_prefs: (a, b) => (a.id < b.id ? -1 : 1),
   body_metrics: (a, b) => (a.date < b.date ? 1 : -1), // más reciente primero
   user_settings: (a, b) => (a.id < b.id ? -1 : 1),
+  programs: (a, b) => (a.id < b.id ? -1 : 1),
 };
 
 // Siempre crea una lista nueva: así React (useMemo) detecta el cambio por identidad.
@@ -70,7 +71,7 @@ function applyOp(op) {
 const persistCache = () =>
   writeJSON('cache', {
     workouts: state.workouts, templates: state.templates, exercises: state.exercises, exercise_prefs: state.exercise_prefs,
-    body_metrics: state.body_metrics, user_settings: state.user_settings,
+    body_metrics: state.body_metrics, user_settings: state.user_settings, programs: state.programs,
   });
 
 export function loadCache() {
@@ -89,6 +90,7 @@ export async function refresh() {
   state.exercise_prefs = data.exercise_prefs || [];
   state.body_metrics = data.body_metrics || [];
   state.user_settings = data.user_settings || [];
+  state.programs = data.programs || [];
   outbox.forEach(applyOp); // los cambios aún no sincronizados siguen ganando
   state.loaded = true;
   persistCache();

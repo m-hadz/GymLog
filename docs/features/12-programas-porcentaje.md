@@ -1,6 +1,6 @@
 # 12 · Programas por porcentaje del máximo de entrenamiento (5/3/1, GZCLP)
 
-**Esfuerzo:** M–L · **Depende de:** base común A (máximo de entrenamiento por ejercicio) y B (cargas
+**Estado:** implementada en v0.1 · **Esfuerzo:** M–L · **Depende de:** base común A (máximo de entrenamiento por ejercicio) y B (cargas
 posibles) · **Relacionada con:** 01
 
 ## Problema y objetivo
@@ -10,6 +10,8 @@ máximo de entrenamiento** ("5 × 85 %") y cambian de semana en semana. En GymLo
 eso obliga a calcular y escribir cada peso a mano. El objetivo: definir series como % del máximo, y
 tener 5/3/1 y GZCLP listos para usar, con su progresión automática.
 
+> **Implementada en v0.1 a pedido (2026-11-22)**, aunque era la de prioridad más baja.
+>
 > **Prioridad más baja (respondido el 2026-11-20):** tu entrenamiento es FBEOD con una serie al fallo por
 > ejercicio, sin programas por porcentaje ni semanas de descarga. Este documento queda como referencia por
 > si eso cambia; no está pensado para implementarse ahora.
@@ -131,6 +133,34 @@ que ya existe (editor, inicio, historial).
 - [ ] Todos los pesos propuestos se pueden armar con el equipo configurado.
 - [ ] Programas, TM y estado se sincronizan entre dispositivos y entran en el respaldo JSON.
 - [ ] Funciona sin conexión.
+
+## Notas de implementación (v0.1)
+
+- `src/lib/programs.js` (puro): `dayPlan`, `completeDay` (progresión GZCLP, avance, fin de ciclo de
+  5/3/1), `redoLastDay`, `nextPosition`/`prevPosition`, `suggestTM`, `gzclpStart`. `src/lib/program-runtime.js`
+  guarda el programa y regenera sus 4 plantillas (`t_<programa>_<día>`) cada vez que cambia; los
+  ejercicios que agregues a una plantilla del programa se conservan. `src/lib/tm.js`: máximo, historial y
+  `programLoad` (peso armable: con barra, el más cercano con tus discos, empate hacia arriba; en
+  máquinas, prefiere los pesos que ya usaste).
+- **Historial del máximo** en `user_settings.data.tm_log` (fecha, valor, motivo: a mano, al crear el
+  programa, fin de ciclo), hasta 300 cambios. Así no hizo falta agregar columnas a `exercise_prefs`.
+- Una plantilla sabe a qué programa pertenece por su id (está en `config.templates`); el entrenamiento,
+  por su `template_id`. Solo avanza el programa activo y solo si es el día que tocaba. En el
+  entrenamiento, los ejercicios del programa llevan `prog: {tier}` (T1/T2/T3 o principal) y sus series
+  usan el peso indicado (no el de la vez anterior); el "objetivo para superar" (01) no aparece en ellos.
+- Series en % en cualquier plantilla: `{pct, reps, amrap}`; al empezar, si el ejercicio no tiene máximo
+  se pide en ese momento. "Reps al máximo" muestra "5+" y la etiqueta "+" en el número de serie.
+- Días por semana: el asistente no lo pregunta. En ambos programas la rotación es la misma entrenes 3 o 4
+  días por semana (5/3/1 avanza de semana cada 4 días de programa; GZCLP rota A1/B1/A2/B2).
+- GZCLP: T1 y T2 suben +2,5 kg (superior) o +5 kg (inferior) al completar todas las series y reps; el
+  peso pasa por `programLoad`. Fallar en 10 × 1 deja la "prueba de 5RM": una serie de 5 sin peso; el 5RM
+  es la serie más pesada con 5 reps o más, y el T1 vuelve a 5 × 3 con el 85 %. T2 al fallar en 3 × 6:
+  vuelve a 3 × 10 con el último peso logrado en 3 × 10 más 7,5 o 10 kg (opción del asistente).
+- Pesos iniciales de GZCLP: 85 % y 65 % del 5RM estimado (1RM × 32/36, Brzycki) para T1 y T2; T3 al
+  ~90 % del peso para 15 reps. Todos editables en el asistente.
+- Saltar un día no cambia pesos (al cerrar un ciclo de 5/3/1 igual ofrece subir los máximos); repetir
+  vuelve un día atrás; "Mover a otra semana" va al día 1 de esa semana.
+- Corregir el último entrenamiento de un programa recalcula su progresión (`state.last.before`).
 
 ## Pruebas
 

@@ -4,7 +4,7 @@ import {
   ActionIcon, Box, Button, Card, Center, Checkbox, Group, Loader, Menu, Text, Textarea, UnstyledButton,
 } from '@mantine/core';
 import {
-  IconAdjustments, IconArrowDown, IconArrowUp, IconArrowsExchange, IconCheck, IconClockHour4, IconDots, IconFlame, IconNote, IconPin, IconPlus,
+  IconAdjustments, IconArrowDown, IconArrowUp, IconArrowsExchange, IconCheck, IconPercentage, IconRepeat, IconTarget, IconClockHour4, IconDots, IconFlame, IconNote, IconPin, IconPlus,
   IconRefresh, IconTrash, IconTrendingUp, IconWeight,
 } from '@tabler/icons-react';
 import { ExerciseThumb } from '../../components/ui.jsx';
@@ -21,6 +21,7 @@ import { fmtSecs, modeAllowed, resolveKind, resolveLoadMode } from '../../lib/ki
 import { saveSettings, savePrefs, state as dataState, templateById, upsert } from '../../lib/data.js';
 import { replaceActive, replaceTemplate, templateIndexOf } from '../../lib/substitutes.js';
 import { openReplaceSheet } from './ReplaceSheet.jsx';
+import { programLoad } from '../../lib/tm.js';
 import { getSetTimer, stopSetTimer } from '../../lib/set-timer.js';
 import { RunningTime, TimeField, TimerButton, useSetTimer } from './TimeCell.jsx';
 import { openStallSheet } from './StallSheet.jsx';
@@ -123,7 +124,7 @@ function NumField({ value, onValue, placeholder, mode, testId, label }) {
   );
 }
 
-function SetTypeMenu({ s, label, onType, onDelete }) {
+function SetTypeMenu({ s, label, onType, onDelete, onPct, onAmrap }) {
   const type = s.type || 'N';
   return (
     <Menu position="bottom-start" width={200}>
@@ -135,7 +136,7 @@ function SetTypeMenu({ s, label, onType, onDelete }) {
           data-testid="set-type"
         >
           {label}
-          {s.fb === 'pr' ? <span className={classes.prTag}>PR</span> : null}
+          {s.fb === 'pr' ? <span className={classes.prTag}>PR</span> : s.amrap ? <span className={classes.amrapTag} title="Reps al máximo">+</span> : null}
         </UnstyledButton>
       </Menu.Target>
       <Menu.Dropdown>
@@ -150,6 +151,17 @@ function SetTypeMenu({ s, label, onType, onDelete }) {
             {SET_TYPE_LABEL[t]}
           </Menu.Item>
         ))}
+        {onPct ? (
+          <>
+            <Menu.Divider />
+            <Menu.Item leftSection={<IconPercentage size={16} />} rightSection={s.pct != null ? <IconCheck size={16} /> : null} onClick={onPct} data-testid="set-pct-toggle">
+              Peso en % del máximo
+            </Menu.Item>
+            <Menu.Item leftSection={<IconRepeat size={16} />} rightSection={s.amrap ? <IconCheck size={16} /> : null} onClick={onAmrap} data-testid="set-amrap-toggle">
+              Reps al máximo (5+)
+            </Menu.Item>
+          </>
+        ) : null}
         <Menu.Divider />
         <Menu.Item color="red" leftSection={<IconTrash size={16} />} onClick={onDelete} data-testid="set-delete">
           Eliminar serie
@@ -160,8 +172,11 @@ function SetTypeMenu({ s, label, onType, onDelete }) {
 }
 
 function SetRow({ s, label, p, goal, cols, ctx, si }) {
-  const { isActive, isTemplate, showRpe, ei, update, toggle, kind, timerKey, timer } = ctx;
-  const ph = goal || p || s.target || {};
+  const { isActive, isTemplate, showRpe, ei, update, toggle, kind, timerKey, timer, prescribed, tm, exId } = ctx;
+  // Programa o % del máximo (feature 12): manda el peso indicado, no la vez anterior
+  const ph = (prescribed && s.target) || goal || p || s.target || {};
+  const pctMode = isTemplate && s.pct != null;
+  const pctKg = pctMode && tm ? programLoad(exId, (tm * s.pct) / 100) : null;
   const timed = kind === 'tiempo';
   const key = timerKey(si);
   const running = isActive && timer?.key === key;
@@ -178,16 +193,29 @@ function SetRow({ s, label, p, goal, cols, ctx, si }) {
         s={s} label={label}
         onType={(t) => patch((x) => { x.type = t; delete x.fb; })}
         onDelete={() => update((d) => { d.exercises[ei].sets.splice(si, 1); })}
+        onPct={isTemplate ? () => patch((x) => { if (x.pct != null) delete x.pct; else { x.pct = 75; x.weight = null; } }) : null}
+        onAmrap={isTemplate ? () => patch((x) => { if (x.amrap) delete x.amrap; else x.amrap = true; }) : null}
       />
-      <UnstyledButton
-        className={classes.prev} disabled={!p}
-        onClick={() => patch((x) => { x.weight = p.weight; x.reps = p.reps; if (p.seconds) x.seconds = p.seconds; })}
-        title={p ? `Copiar ${fmtSet(p)}` : 'Sin registro anterior'}
-        data-testid="set-prev"
-      >
-        {prevText(p, kind)}
-      </UnstyledButton>
-      {kind !== 'peso_corporal' ? (
+      {pctMode ? (
+        <span className={classes.prev} data-testid="set-pct-kg" title={tm ? `${s.pct} % de ${fmtNum(tm)} kg` : 'Sin máximo de entrenamiento: se pide al empezar'}>
+          {pctKg ? `= ${fmtNum(pctKg)} kg` : 'sin máx.'}
+        </span>
+      ) : (
+        <UnstyledButton
+          className={classes.prev} disabled={!p}
+          onClick={() => patch((x) => { x.weight = p.weight; x.reps = p.reps; if (p.seconds) x.seconds = p.seconds; })}
+          title={p ? `Copiar ${fmtSet(p)}` : 'Sin registro anterior'}
+          data-testid="set-prev"
+        >
+          {prevText(p, kind)}
+        </UnstyledButton>
+      )}
+      {pctMode && kind !== 'peso_corporal' ? (
+        <NumField
+          key="pct" value={s.pct} mode="decimal" label="% del máximo" testId="set-pct" placeholder="%"
+          onValue={(v) => patch((x) => { x.pct = v; })}
+        />
+      ) : kind !== 'peso_corporal' ? (
         <NumField
           value={s.weight} mode="decimal" label={WEIGHT_LABEL[kind]} testId="set-weight"
           placeholder={ph.weight ? fmtNum(ph.weight, 2) : timed ? '—' : 'kg'}
@@ -204,7 +232,7 @@ function SetRow({ s, label, p, goal, cols, ctx, si }) {
       ) : (
         <NumField
           value={s.reps} mode="numeric" label="Repeticiones" testId="set-reps"
-          placeholder={ph.reps != null ? String(ph.reps) : 'reps'}
+          placeholder={ph.reps != null ? `${ph.reps}${s.amrap ? '+' : ''}` : 'reps'}
           onValue={(v) => patch((x) => { x.reps = v; })}
         />
       )}
@@ -268,16 +296,20 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
   const stalls = useStalls();
   const stall = isActive && stalls.get(ex.exercise_id)?.stalled ? stalls.get(ex.exercise_id) : null;
 
+  // Programa o series en % del máximo (feature 12): el peso viene indicado
+  const prescribed = !!ex.prog || ex.sets.some((s) => s.target?.pct != null);
+  const tm = prefs?.training_max || null;
+
   // Objetivo para superar la vez anterior (feature 01): solo en el entrenamiento en curso
   const goal = useMemo(() => {
-    if (!isActive || settings.suggest === false || kind === 'asistido' || kind === 'tiempo') return null;
+    if (!isActive || prescribed || settings.suggest === false || kind === 'asistido' || kind === 'tiempo') return null;
     return suggest({
       workouts, exId: ex.exercise_id, excludeId: docId, templateId, prefs,
       increment: defaultIncrement(category),
       barbell: barbell ? { bar: settings.bar, plates: settings.plates } : null,
       stalled: !!stall, resetPct: (settings.resetPct ?? 10) / 100,
     });
-  }, [isActive, settings.suggest, settings.bar, settings.plates, settings.resetPct, workouts, ex.exercise_id, docId, templateId, prefs, category, barbell, kind, stall]);
+  }, [isActive, prescribed, settings.suggest, settings.bar, settings.plates, settings.resetPct, workouts, ex.exercise_id, docId, templateId, prefs, category, barbell, kind, stall]);
   const goalIdx = goal ? ex.sets.findIndex((s) => s.type !== 'W' && s.type !== 'D') : -1;
   // Opciones: reinicio (si está estancado, va primero), la principal y la alternativa
   const goalOptions = !goal ? [] : [
@@ -376,7 +408,7 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
       startRest(restFor);
     } else if (!s.done) {
       const g = si === goalIdx ? goalMain : null;
-      const ph = g || p || s.target || {};
+      const ph = (prescribed && s.target) || g || p || s.target || {};
       const reps = s.reps ?? ph.reps ?? null;
       if (reps == null) { notify.warn('Ingresa las repeticiones'); return; }
       const next = { ...s, weight: s.weight ?? ph.weight ?? 0, reps, done: true };
@@ -467,7 +499,8 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
   });
 
   const done = ex.sets.filter((s) => s.done).length;
-  const ctx = { isActive, isTemplate, showRpe, ei, update, toggle, kind, timerKey, timer };
+  const ctx = { isActive, isTemplate, showRpe, ei, update, toggle, kind, timerKey, timer, prescribed, tm, exId: ex.exercise_id };
+  const tier = ex.prog?.tier && ex.prog.tier !== 'main' ? ex.prog.tier : null;
   let n = 0;
 
   return (
@@ -484,6 +517,7 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
             <Text size="xs" c="dimmed" className="tnum">
               {isActive ? `${done}/${ex.sets.length} series` : `${ex.sets.length} ${ex.sets.length === 1 ? 'serie' : 'series'}`}
               {meta?.bodyPart ? ` · ${meta.bodyPart}` : ''}
+              {tier ? ` · ${tier}` : ''}
             </Text>
             {stall ? (
               <span
@@ -568,6 +602,18 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
         <FixedNoteBox note={prefs.note} className={classes.fixedNote} onEdit={() => openFixedNote({ id: ex.exercise_id, name })} />
       ) : null}
 
+      {ex.prog?.test ? (
+        <Box className={classes.goal} data-testid="test-5rm">
+          <IconTarget size={16} className={classes.goalIcon} />
+          <Text size="sm" className={classes.goalText}>
+            <b>Prueba de 5RM:</b> sube hasta el peso más alto que puedas hacer 5 veces y anótalo. El T1 vuelve a 5 × 3 con el 85 %.
+          </Text>
+        </Box>
+      ) : null}
+      {isTemplate && ex.prog ? (
+        <Text size="xs" c="dimmed" px="sm" pb={4} data-testid="prog-note">Series del programa: se actualizan solas después de cada día.</Text>
+      ) : null}
+
       {goal ? (
         <Box className={classes.goal} data-testid="goal-line" data-source={goalSource}>
           <IconTrendingUp size={16} className={classes.goalIcon} />
@@ -626,7 +672,11 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
         <div className={`${classes.grid} ${classes.headRow}`} style={{ '--cols': cols }}>
           <span style={{ textAlign: 'center' }}>Serie</span>
           <span>Anterior</span>
-          {kind !== 'peso_corporal' ? <span data-testid="weight-head">{WEIGHT_HEAD[kind]}{modeAllowed(kind) ? MODE_SUFFIX[loadMode] : ''}</span> : null}
+          {kind !== 'peso_corporal' ? (
+            <span data-testid="weight-head">
+              {isTemplate && ex.sets.some((s) => s.pct != null) ? '% máx' : WEIGHT_HEAD[kind]}{modeAllowed(kind) ? MODE_SUFFIX[loadMode] : ''}
+            </span>
+          ) : null}
           <span>{timed ? 'Tiempo' : 'Reps'}</span>
           {timed && isActive ? <span /> : null}
           {showRpe && !isTemplate && !timed ? <span>RPE</span> : null}
