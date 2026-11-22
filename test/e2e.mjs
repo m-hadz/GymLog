@@ -945,6 +945,43 @@ try {
   await expectCount(tid('program-card'), 0);
   step('programas: 5/3/1 con TM 100 → 65/75/85×5+, día hecho, día 2 con 52,5/60/67,5, saltar, repetir, semana 3, ficha, pausar; GZCLP A1');
 
+  // Plantilla normal con series en % del máximo (TM de sentadilla = 100): 75 % × 5+ → 75 kg; al terminar
+  // con una serie más, "Actualizar plantilla" la deja en % y con el "+"
+  await tid('new-template').click();
+  await tid('workout-name').fill('Sentadilla al 75');
+  await tid('add-exercises').click();
+  await tid('picker').getByTestId('exercise-search').fill('barbell squat');
+  await tid('picker').getByTestId('exercise-row').filter({ hasText: 'Barbell Squat' }).first().click();
+  await tid('picker-add').click();
+  const pt = cards().nth(0);
+  await pt.getByTestId('set-reps').first().fill('5');
+  await pt.getByTestId('set-type').first().click();
+  await tid('set-pct-toggle').click();
+  await visible(pt.getByTestId('set-pct-kg').getByText('= 75 kg'));
+  await pt.getByTestId('set-type').first().click();
+  await tid('set-amrap-toggle').click();
+  await tid('editor-save').click();
+  const pctTpl = () => Object.values(db().templates).find((t) => t.name === 'Sentadilla al 75');
+  await expectUntil(() => pctTpl(), 'plantilla con % guardada');
+  assert.deepEqual(pctTpl().exercises[0].sets.map(({ weight, reps, pct, amrap }) => ({ weight, reps, pct, amrap })), [{ weight: null, reps: 5, pct: 75, amrap: true }]);
+  await tid('template-card').filter({ hasText: 'Sentadilla al 75' }).getByTestId('template-start').click();
+  const ps = cards().nth(0);
+  assert.equal(await ps.getByTestId('set-weight').first().getAttribute('placeholder'), '75');
+  assert.equal(await ps.getByTestId('set-reps').first().getAttribute('placeholder'), '5+');
+  await ps.getByTestId('set-reps').first().fill('9');
+  await ps.getByTestId('set-check').first().click();
+  await ps.getByTestId('add-set').click();
+  await ps.getByTestId('set-weight').nth(1).fill('60');
+  await ps.getByTestId('set-reps').nth(1).fill('10');
+  await ps.getByTestId('set-check').nth(1).click();
+  await tid('finish-workout').click();
+  await confirmUntil(text('¡Entrenamiento guardado!')); // acepta "Actualizar plantilla"
+  await expectUntil(() => pctTpl().exercises[0].sets.length === 2, 'plantilla actualizada');
+  assert.deepEqual(pctTpl().exercises[0].sets.map(({ weight, reps, pct, amrap }) => ({ weight, reps, pct, amrap })), [
+    { weight: null, reps: 5, pct: 75, amrap: true }, { weight: 60, reps: 10, pct: undefined, amrap: undefined },
+  ]);
+  step('plantilla normal en % del máximo: 75 % × 5+ → 75 kg; "Actualizar plantilla" la deja en %');
+
   // 13. Lectura del día: estado vacío y error claro si falta configurar el canal
   await tab('reading');
   await visible(text('Todavía no hay resúmenes'));

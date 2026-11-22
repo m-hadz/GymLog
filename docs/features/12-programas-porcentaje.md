@@ -161,6 +161,10 @@ que ya existe (editor, inicio, historial).
 - Saltar un día no cambia pesos (al cerrar un ciclo de 5/3/1 igual ofrece subir los máximos); repetir
   vuelve un día atrás; "Mover a otra semana" va al día 1 de esa semana.
 - Corregir el último entrenamiento de un programa recalcula su progresión (`state.last.before`).
+- "Actualizar plantilla" al terminar conserva las series en % y "reps al máximo". En un ejercicio del
+  programa, "Reemplazar" cambia solo el de hoy (el ejercicio del programa se cambia en el programa).
+- Sincronización: si la tabla `programs` no existe todavía, el servidor responde 409 y la app guarda el
+  cambio en la cola para más tarde, sin descartarlo ni frenar las demás tablas.
 
 ## Pruebas
 

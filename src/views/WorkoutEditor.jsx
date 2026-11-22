@@ -115,6 +115,8 @@ function Editor({ mode, doc, update, onSave, onCancel, title }) {
       confirmLabel: 'Terminar',
     }))) return;
     const final = structuredClone(getActive() || cur);
+    // Para "Actualizar plantilla": las hechas con su objetivo (series en % del máximo, feature 12)
+    const doneWithTargets = final.exercises.map((e) => ({ ...e, sets: e.sets.filter((s) => s.done) })).filter((e) => e.sets.length);
     final.exercises = final.exercises
       .map((e) => ({ ...e, sets: e.sets.filter((s) => s.done).map(({ target, fb, ...s }) => s) }))
       .filter((e) => e.sets.length);
@@ -141,7 +143,7 @@ function Editor({ mode, doc, update, onSave, onCancel, title }) {
       confirmLabel: 'Actualizar',
       cancelLabel: 'Mantener',
     })) {
-      upsert('templates', { ...templateFromWorkout(final, tpl.name), id: tpl.id, position: tpl.position, folder: tpl.folder, notes: tpl.notes });
+      upsert('templates', { ...templateFromWorkout({ ...final, exercises: doneWithTargets }, tpl.name), id: tpl.id, position: tpl.position, folder: tpl.folder, notes: tpl.notes });
     }
     clearActive();
     stopRest();

@@ -441,7 +441,8 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
     const tpl = isActive && templateId ? templateById(templateId) : null;
     const allDone = isActive && ex.sets.length > 0 && ex.sets.every((s) => s.done);
     openReplaceSheet({
-      id: ex.exercise_id, name, allDone, fromTemplate: !!tpl && !allDone,
+      // Un ejercicio de un programa (feature 12) se cambia en el programa, no en su plantilla
+      id: ex.exercise_id, name, allDone, fromTemplate: !!tpl && !allDone && !ex.prog,
       onPick: (newId, scope) => {
         const next = { exercise_id: newId, name: exerciseName(newId) };
         const before = structuredClone(ex);
@@ -581,7 +582,7 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
             <Menu.Item leftSection={<IconAdjustments size={16} />} onClick={openPrefs} data-testid="prefs-open">
               Ajustes del ejercicio
             </Menu.Item>
-            {isActive || isTemplate ? (
+            {isActive || (isTemplate && !ex.prog) ? (
               <Menu.Item leftSection={<IconArrowsExchange size={16} />} onClick={replace} data-testid="exercise-replace">
                 {isActive && ex.sets.length > 0 && done === ex.sets.length ? 'Agregar otro después' : 'Reemplazar'}
               </Menu.Item>

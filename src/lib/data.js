@@ -124,29 +124,40 @@ export async function flush() {
   flushing = true;
   state.syncing = outbox.length > 0;
   try {
-    while (outbox.length) {
-      const op = outbox[0];
+    // Los cambios de una tabla que aún no existe en el servidor se guardan para más tarde (siguen en la
+    // cola y en el teléfono) sin frenar los de las demás tablas.
+    let i = 0;
+    let held = null;
+    let failed = null;
+    while (i < outbox.length) {
+      const op = outbox[i];
+      if (held?.has(op.table)) { i++; continue; }
       try {
         if (op.op === 'upsert') {
-          for (let i = 0; i < op.rows.length; i += 200) await api('POST', op.table, op.rows.slice(i, i + 200));
+          for (let j = 0; j < op.rows.length; j += 200) await api('POST', op.table, op.rows.slice(j, j + 200));
         } else {
           await api('DELETE', `${op.table}?id=${encodeURIComponent(op.id)}`);
         }
-        outbox.shift();
+        outbox.splice(i, 1);
         writeJSON('outbox', outbox);
-        state.syncError = null;
       } catch (e) {
+        if (e.held) {
+          (held ||= new Map()).set(op.table, e.message);
+          i++;
+          continue;
+        }
         // Errores de datos (400, 404, 413) no se arreglan reintentando: se descartan.
         if ([400, 404, 413].includes(e.status)) {
-          outbox.shift();
+          outbox.splice(i, 1);
           writeJSON('outbox', outbox);
           notifications.show({ color: 'red', title: 'No se pudo guardar', message: e.message, autoClose: 5000 });
           continue;
         }
-        state.syncError = e.message;
+        failed = e.message;
         break;
       }
     }
+    state.syncError = failed || (held ? [...held.values()].join(' · ') : null);
   } finally {
     flushing = false;
     state.syncing = false;

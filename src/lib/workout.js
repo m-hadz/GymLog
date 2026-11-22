@@ -137,7 +137,10 @@ export function templateFromWorkout(w, name = w.name) {
       exercise_id: e.exercise_id,
       name: e.name,
       rest: e.rest ?? null,
-      sets: e.sets.filter((s) => s.done !== false).map((s) => ({ type: s.type || 'N', weight: s.weight, reps: s.reps, ...(s.seconds ? { seconds: s.seconds } : {}) })),
+      // Las series en % del máximo siguen en % (con sus reps indicadas) y "reps al máximo" sigue (feature 12)
+      sets: e.sets.filter((s) => s.done !== false).map((s) => (s.target?.pct > 0
+        ? { type: s.type || 'N', weight: null, reps: s.target.reps ?? s.reps, pct: s.target.pct, ...(s.amrap ? { amrap: true } : {}) }
+        : { type: s.type || 'N', weight: s.weight, reps: s.reps, ...(s.seconds ? { seconds: s.seconds } : {}), ...(s.amrap ? { amrap: true } : {}) })),
     })),
   };
 }

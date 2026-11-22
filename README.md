@@ -43,6 +43,8 @@ funciones serverless en Vercel y Postgres gratuito en Supabase.
   plantilla (menú del número de serie). Los pesos se redondean a lo que se puede armar con tu barra y discos.
 - Tabla nueva `programs`: correr su bloque de `schema.sql` en Supabase. Las plantillas de cada programa
   son plantillas normales, en una carpeta con su nombre (no aparecen en "Mis plantillas").
+- Si falta crear una tabla en Supabase (o el servidor aún no tiene la ruta), los cambios de esa tabla
+  quedan guardados en el teléfono y se suben solos cuando exista, sin frenar los demás. Antes se descartaban.
 - `api/[resource].js`: los recursos sin archivo propio (`user_settings`, `programs`) van por una sola
   función, para no pasar el máximo de 12 del plan Hobby de Vercel.
 
