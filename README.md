@@ -66,6 +66,12 @@ funciones serverless en Vercel y Postgres gratuito en Supabase.
   "Último día para no cortar la racha"), franja de 30 días y mejor racha en el Perfil, pausas de hasta 14
   días (una cada 6 semanas) y registrar un entrenamiento en un día pasado desde el Calendario (repara la
   racha). Un solo cálculo (`src/lib/streak.js`) para Entrenar, Calendario, Perfil y el resumen.
+- **Reemplazar un ejercicio** ([feature 10](docs/features/10-reemplazar-ejercicio.md)): menú del
+  ejercicio → "Reemplazar" (en curso y en el editor de plantilla). Sugiere 6 del mismo músculo y equipo
+  primero, luego del mismo músculo y luego del mismo grupo; en cada grupo, primero los que ya hiciste con
+  tu última serie ("La última vez: 63 × 7"); debajo, el buscador. Las series pendientes pasan vacías al
+  nuevo (sin traspasar el peso); si ya había hechas, el original se queda con ellas y el nuevo va debajo.
+  "Solo hoy" o "También en la plantilla", deshacer por 5 s, y "No sugerir más" (se revierte en la ficha).
 - Tabla nueva `user_settings` (meta y pausas sincronizadas): correr su bloque de `schema.sql` en
   Supabase. Mientras no exista, la app funciona y la meta queda como cambio pendiente de sincronizar.
 
@@ -266,6 +272,7 @@ src/
     stalls.js         Ejercicios estancados (feature 06), cacheado
     report.js         Resumen mensual y anual (feature 07)
     streak.js         Meta de constancia y racha (feature 09)
+    substitutes.js    Sugerencias para reemplazar un ejercicio y traspaso de series (feature 10)
     strong-csv.js     Importar/exportar CSV de Strong
     rest-timer.js, plates.js, format.js, router.js, api.js
   components/         Layout (navegación, descanso), encabezados, hojas, diálogos, selector de ejercicios

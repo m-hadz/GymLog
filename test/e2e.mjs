@@ -658,6 +658,104 @@ try {
   await visible(tid('report-entry'));
   step('resumen: mes con secciones, primer mes, siguiente mes con comparación, compartir imagen, año');
 
+  // 12g. Reemplazar un ejercicio (feature 10): press de banca con 2 series hechas → Chest Press
+  // (mismo grupo, ya hecho: sugerido con tu última serie); las hechas se quedan, las pendientes pasan
+  await tab('train');
+  await tid('start-empty').click();
+  await tid('add-exercises').click();
+  await tid('picker').getByTestId('exercise-search').fill('bench press (b');
+  await tid('picker').getByTestId('exercise-row').filter({ hasText: 'Bench Press (Barbell)' }).first().click();
+  await tid('picker-add').click();
+  const bp = cards().first();
+  await visible(bp.getByTestId('set-row'));
+  while (await bp.getByTestId('set-row').count() < 4) await bp.getByTestId('add-set').click();
+  const nSets = await bp.getByTestId('set-row').count();
+  for (const i of [0, 1]) {
+    await bp.getByTestId('set-weight').nth(i).fill('60');
+    await bp.getByTestId('set-reps').nth(i).fill('8');
+    await bp.getByTestId('set-check').nth(i).click();
+  }
+  const openReplace = async (card) => {
+    await card.getByTestId('exercise-menu').click();
+    await tid('exercise-replace').click();
+    await visible(tid('replace-sheet').getByTestId('replace-current'));
+  };
+  await openReplace(bp);
+  const firstSug = tid('replace-suggestion').first();
+  await visible(firstSug.getByText('Chest Press (Machine)'));
+  assert.equal((await firstSug.getByTestId('replace-last').innerText()).trim(), 'La última vez: 63 × 7');
+  await shot('12g-reemplazar');
+  await firstSug.getByTestId('replace-pick').click();
+  await expectCount(cards(), 2);
+  await expectCount(cards().nth(0).getByTestId('set-row'), 2);
+  await expectCount(cards().nth(0).locator('[data-testid=set-row][data-done=true]'), 2);
+  await visible(cards().nth(1).getByText('Chest Press (Machine)'));
+  await expectCount(cards().nth(1).getByTestId('set-row'), nSets - 2);
+  await expectCount(cards().nth(1).locator('[data-testid=set-row][data-done=true]'), 0);
+  assert.equal(await cards().nth(1).getByTestId('set-weight').first().inputValue(), '');
+  assert.equal((await cards().nth(1).getByTestId('set-prev').first().innerText()).trim(), '57 × 9'); // "Anterior" del nuevo
+  // Deshacer: vuelve el original con todas sus series
+  await tid('undo').click();
+  await expectCount(cards(), 1);
+  await expectCount(cards().nth(0).getByTestId('set-row'), nSets);
+  await expectCount(cards().nth(0).locator('[data-testid=set-row][data-done=true]'), 2);
+  // De nuevo, y terminar: cada ejercicio guarda sus propias series
+  await openReplace(cards().first());
+  await tid('replace-suggestion').first().getByTestId('replace-pick').click();
+  await expectCount(cards(), 2);
+  await cards().nth(1).getByTestId('set-check').first().click(); // usa el objetivo del Chest Press
+  await tid('finish-workout').click();
+  await confirmUntil(text('¡Entrenamiento guardado!'));
+  await page.waitForTimeout(500);
+  const replaced = Object.values(db().workouts).sort((a, b) => (a.started_at < b.started_at ? 1 : -1))[0];
+  assert.deepEqual(replaced.exercises.map((e) => [e.name, e.sets.length]), [['Bench Press (Barbell)', 2], ['Chest Press (Machine)', 1]]);
+  assert.ok(replaced.exercises[1].sets[0].weight >= 57, 'el Chest Press debe guardar su propio peso'); // objetivo para superar 57 × 9 / 63 × 7
+
+  // Desde la plantilla, "También en la plantilla" (eligiendo con el buscador de la hoja): mismas
+  // series y reps objetivo, sin peso
+  await tab('train');
+  await tid('template-start').first().click();
+  const sqCard = cards().filter({ hasText: 'Barbell Squat' }).first();
+  await visible(sqCard);
+  const tplSquat = Object.values(db().templates)[0].exercises.find((e) => e.exercise_id === 'Barbell_Squat');
+  await openReplace(sqCard);
+  await tid('replace-scope').getByText('También en la plantilla').click();
+  await tid('replace-sheet').getByTestId('exercise-search').fill('reverse barbell');
+  await tid('replace-sheet').getByTestId('exercise-row').filter({ hasText: 'Reverse Barbell Curl' }).first().click();
+  await visible(cards().filter({ hasText: 'Reverse Barbell Curl' }).first());
+  await page.waitForTimeout(500);
+  const tplAfter = Object.values(db().templates)[0].exercises.find((e) => e.exercise_id === 'Reverse_Barbell_Curl');
+  assert.ok(tplAfter, 'la plantilla no cambió');
+  assert.ok(!Object.values(db().templates)[0].exercises.some((e) => e.exercise_id === 'Barbell_Squat'));
+  assert.deepEqual(tplAfter.sets.map((s) => [s.type, s.weight, s.reps]), tplSquat.sets.map((s) => [s.type || 'N', null, s.reps]));
+  await tid('cancel-workout').click();
+  await tid('confirm-ok').click();
+
+  // "No sugerir más": desaparece, se guarda en el servidor y se revierte desde la ficha
+  await tid('start-empty').click();
+  await tid('add-exercises').click();
+  await tid('picker').getByTestId('exercise-search').fill('bench press (b');
+  await tid('picker').getByTestId('exercise-row').filter({ hasText: 'Bench Press (Barbell)' }).first().click();
+  await tid('picker-add').click();
+  await openReplace(cards().first());
+  await tid('replace-suggestion').filter({ hasText: 'Chest Press (Machine)' }).getByTestId('replace-exclude').click();
+  await expectCount(tid('replace-suggestion').filter({ hasText: 'Chest Press (Machine)' }), 0);
+  await page.waitForTimeout(500);
+  const excludedId = Object.values(db().exercise_prefs).find((p) => p.exclude_from_suggestions)?.id;
+  assert.ok(excludedId, 'no se guardó la exclusión');
+  await page.keyboard.press('Escape');
+  await tid('replace-sheet').waitFor({ state: 'hidden' });
+  await tid('cancel-workout').click();
+  await tid('confirm-ok').click();
+  await tab('exercises');
+  await page.getByTestId('exercise-search').fill('chest press (m');
+  await page.getByTestId('exercise-row').filter({ hasText: 'Chest Press (Machine)' }).first().click();
+  await tid('excluded-revert').click();
+  await expectCount(tid('excluded-hint'), 0);
+  await page.waitForTimeout(500);
+  assert.equal(db().exercise_prefs[excludedId]?.exclude_from_suggestions ?? Object.values(db().exercise_prefs).find((p) => p.id === excludedId).exclude_from_suggestions, false);
+  step('reemplazar: sugerencias con última serie, hechas se quedan, deshacer, historial, plantilla, no sugerir más');
+
   // 13. Lectura del día: estado vacío y error claro si falta configurar el canal
   await tab('reading');
   await visible(text('Todavía no hay resúmenes'));

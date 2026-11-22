@@ -4,7 +4,7 @@ import {
   ActionIcon, Box, Button, Card, Center, Checkbox, Group, Loader, Menu, Text, Textarea, UnstyledButton,
 } from '@mantine/core';
 import {
-  IconAdjustments, IconArrowDown, IconArrowUp, IconCheck, IconClockHour4, IconDots, IconFlame, IconNote, IconPin, IconPlus,
+  IconAdjustments, IconArrowDown, IconArrowUp, IconArrowsExchange, IconCheck, IconClockHour4, IconDots, IconFlame, IconNote, IconPin, IconPlus,
   IconRefresh, IconTrash, IconTrendingUp, IconWeight,
 } from '@tabler/icons-react';
 import { ExerciseThumb } from '../../components/ui.jsx';
@@ -18,7 +18,9 @@ import { suggest } from '../../lib/progression.js';
 import { openExercisePrefs } from '../exercises/ExercisePrefs.jsx';
 import { FixedNoteBox, openFixedNote } from '../exercises/FixedNote.jsx';
 import { fmtSecs, modeAllowed, resolveKind, resolveLoadMode } from '../../lib/kinds.js';
-import { saveSettings, savePrefs, state as dataState } from '../../lib/data.js';
+import { saveSettings, savePrefs, state as dataState, templateById, upsert } from '../../lib/data.js';
+import { replaceActive, replaceTemplate, templateIndexOf } from '../../lib/substitutes.js';
+import { openReplaceSheet } from './ReplaceSheet.jsx';
 import { getSetTimer, stopSetTimer } from '../../lib/set-timer.js';
 import { RunningTime, TimeField, TimerButton, useSetTimer } from './TimeCell.jsx';
 import { openStallSheet } from './StallSheet.jsx';
@@ -401,6 +403,49 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
     notify.undo(`Quitaste ${name}`, () => update((d) => { d.exercises.splice(Math.min(ei, d.exercises.length), 0, removed); }));
   };
 
+  // Reemplazar (feature 10): en curso, las hechas se quedan y las pendientes pasan al nuevo; en la
+  // plantilla, mismas series y reps objetivo. Deshacer por 5 s, también el cambio en la plantilla.
+  const replace = () => {
+    const tpl = isActive && templateId ? templateById(templateId) : null;
+    const allDone = isActive && ex.sets.length > 0 && ex.sets.every((s) => s.done);
+    openReplaceSheet({
+      id: ex.exercise_id, name, allDone, fromTemplate: !!tpl && !allDone,
+      onPick: (newId, scope) => {
+        const next = { exercise_id: newId, name: exerciseName(newId) };
+        const before = structuredClone(ex);
+        let res = null;
+        let ti = -1;
+        update((d) => {
+          if (scope === 'template' && tpl) ti = templateIndexOf(d.exercises, ei, tpl.exercises);
+          res = isTemplate ? replaceTemplate(d.exercises, ei, next) : replaceActive(d.exercises, ei, next);
+        });
+        let tplBefore = null;
+        if (scope === 'template' && tpl) {
+          if (ti >= 0) {
+            tplBefore = structuredClone(tpl);
+            const t = structuredClone(tpl);
+            replaceTemplate(t.exercises, ti, next);
+            upsert('templates', t);
+          } else notify.warn(`"${tpl.name}" no tiene este ejercicio: se cambió solo hoy`);
+        }
+        const msg = res.added ? `Agregaste ${next.name} debajo`
+          : res.split ? `${next.name} va debajo con las series pendientes`
+            : `Cambiaste ${name} por ${next.name}`;
+        notify.undo(tplBefore ? `${msg} (también en la plantilla)` : msg, () => {
+          update((d) => {
+            if (d.exercises[res.index]?.exercise_id !== newId) return;
+            if (res.index === ei) d.exercises[ei] = before;
+            else {
+              d.exercises.splice(res.index, 1);
+              if (d.exercises[ei]?.exercise_id === before.exercise_id) d.exercises[ei] = before;
+            }
+          });
+          if (tplBefore) upsert('templates', tplBefore);
+        });
+      },
+    });
+  };
+
   const pickRest = () => openRestPicker({
     name, current: ex.rest ?? null, auto: autoRest,
     onPick: (v) => update((d) => { d.exercises[ei].rest = v; }),
@@ -502,6 +547,11 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
             <Menu.Item leftSection={<IconAdjustments size={16} />} onClick={openPrefs} data-testid="prefs-open">
               Ajustes del ejercicio
             </Menu.Item>
+            {isActive || isTemplate ? (
+              <Menu.Item leftSection={<IconArrowsExchange size={16} />} onClick={replace} data-testid="exercise-replace">
+                {isActive && ex.sets.length > 0 && done === ex.sets.length ? 'Agregar otro después' : 'Reemplazar'}
+              </Menu.Item>
+            ) : null}
             <Menu.Item leftSection={<IconArrowUp size={16} />} disabled={ei === 0} onClick={() => move(-1)}>Subir</Menu.Item>
             <Menu.Item leftSection={<IconArrowDown size={16} />} disabled={ei === count - 1} onClick={() => move(1)}>Bajar</Menu.Item>
             <Menu.Divider />
