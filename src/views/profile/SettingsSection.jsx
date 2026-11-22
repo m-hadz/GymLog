@@ -17,6 +17,7 @@ import { useData, useSettings } from '../../lib/hooks.js';
 import { SettingsGroup, SettingsRow } from './SettingsList.jsx';
 import { WarmupSettings } from './WarmupSettings.jsx';
 import { BodySettings } from './BodySettings.jsx';
+import { RestPushRow } from './RestPushSettings.jsx';
 
 // Meta de constancia (feature 09): sincronizada, se edita en una hoja
 function GoalRow() {
@@ -133,6 +134,7 @@ export function SettingsSection() {
         <SettingsRow icon={IconBolt} color="yellow" label="Registrar RPE por serie" description="Esfuerzo percibido del 6 al 10" right={toggle('rpe', 'Registrar RPE por serie')} />
         <SettingsRow icon={IconDeviceMobile} color="cyan" label="Pantalla encendida durante el entrenamiento" right={toggle('wake', 'Pantalla encendida durante el entrenamiento')} />
         <SettingsRow icon={IconBell} color="pink" label="Sonido al terminar el descanso" right={toggle('sound', 'Sonido al terminar el descanso')} />
+        <RestPushRow />
       </SettingsGroup>
 
       <SettingsGroup footer="Se usan en la calculadora de discos.">

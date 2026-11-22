@@ -72,6 +72,15 @@ funciones serverless en Vercel y Postgres gratuito en Supabase.
   tu última serie ("La última vez: 63 × 7"); debajo, el buscador. Las series pendientes pasan vacías al
   nuevo (sin traspasar el peso); si ya había hechas, el original se queda con ellas y el nuevo va debajo.
   "Solo hoy" o "También en la plantilla", deshacer por 5 s, y "No sugerir más" (se revierte en la ficha).
+- **Aviso de fin de descanso con la app cerrada** ([feature 11](docs/features/11-aviso-descanso-push.md)):
+  Perfil → Ajustes → "Aviso con la app cerrada". Al empezar un descanso, el servidor queda esperando
+  y a la hora de término manda un push: llega la notificación "Descanso terminado" con sonido aunque la
+  pantalla esté bloqueada. Sumar/restar 15 s la mueve; saltar, terminar o descartar la cancela; tocarla
+  abre el entrenamiento. Con la app abierta suena como siempre y la notificación se cierra sola. En iPhone
+  requiere la app instalada en la pantalla de inicio. Botón "Probar aviso (10 s)". Necesita las claves
+  VAPID (ver Deploy) y las tablas `push_subscriptions` y `rest_alerts` de `schema.sql`.
+- Corrección: faltaba `api/user_settings.js`, así que en Vercel la meta de constancia (09) no se guardaba
+  en el servidor (quedaba como cambio pendiente). Ahora sí.
 - Tabla nueva `user_settings` (meta y pausas sincronizadas): correr su bloque de `schema.sql` en
   Supabase. Mientras no exista, la app funciona y la meta queda como cambio pendiente de sincronizar.
 
@@ -175,6 +184,8 @@ git push -u origin main
    | `SUPABASE_URL` | la Project URL |
    | `SUPABASE_SECRET_KEY` | la secret key |
    | `APP_PASSWORD` | una clave tuya (te la pedirá la app una vez por dispositivo) |
+   | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | opcional, para el aviso de fin de descanso: `node scripts/vapid-keys.mjs` |
+   | `VAPID_SUBJECT` | opcional: `mailto:` o `https://` (por defecto, la URL de la app) |
 3. **Deploy**. Cada `git push` vuelve a desplegar automáticamente.
 
 ### 4. En el teléfono
@@ -244,10 +255,16 @@ api/*.js              Funciones de Vercel (una por recurso), todas delegan en li
 lib/router.js         Validación, auth por clave (header x-app-key) y CRUD genérico
 lib/store.js          Supabase vía REST (fetch, sin SDK) o archivo JSON en local
 lib/summary.js        Lectura del día: RSS de YouTube, Supadata, OpenAI y refreshSummary
-schema.sql            6 tablas: workouts, templates, exercises (series en JSONB),
+lib/webpush.js        Web Push sin contenido: JWT VAPID (ES256) con node:crypto, sin dependencias
+lib/push-api.js       /api/push-subscribe y /api/rest-alert: esperar hasta el fin del descanso y avisar
+public/push-sw.js     Service worker del aviso (lo importa el de Workbox): muestra "Descanso terminado"
+schema.sql            9 tablas: workouts, templates, exercises (series en JSONB),
                       exercise_prefs (ajustes por ejercicio, id = exercise_id),
-                      body_metrics (peso y medidas, id = fecha) y
+                      body_metrics (peso y medidas, id = fecha), user_settings (meta),
+                      push_subscriptions y rest_alerts (aviso de descanso) y
                       video_summaries (resúmenes de YouTube, id = video_id)
+api/                  12 archivos: el máximo de funciones del plan Hobby de Vercel. Para
+                      agregar otra, juntar recursos en un mismo archivo.
 dev-server.js         /api + Vite en desarrollo (o ./dist con --dist)
 index.html            Entrada de Vite
 public/               Íconos de la app (los PNG se generan con scripts/make-icons.mjs)
@@ -272,6 +289,7 @@ src/
     stalls.js         Ejercicios estancados (feature 06), cacheado
     report.js         Resumen mensual y anual (feature 07)
     streak.js         Meta de constancia y racha (feature 09)
+    push.js           Aviso de fin de descanso por push: suscripción y alertas (feature 11)
     substitutes.js    Sugerencias para reemplazar un ejercicio y traspaso de series (feature 10)
     strong-csv.js     Importar/exportar CSV de Strong
     rest-timer.js, plates.js, format.js, router.js, api.js
@@ -280,7 +298,8 @@ src/
   views/              Pantallas: Entrenar, editor, Historial, Ejercicios, Perfil, Lectura
 ```
 
-**API:** `GET /api/bootstrap` (todo), `GET|POST|DELETE /api/{workouts|templates|exercises|exercise_prefs|body_metrics|user_settings}`
+**API:** `GET /api/bootstrap` (todo), `GET|POST|DELETE /api/{workouts|templates|exercises|exercise_prefs|body_metrics|user_settings}`,
+`GET|POST|DELETE /api/push-subscribe`, `POST|PUT|DELETE /api/rest-alert` (feature 11)
 (`POST` acepta un objeto o una lista y hace upsert por `id`; `DELETE ?id=`), `GET /api/health`,
 `GET /api/summary` (último resumen; `?id=` uno concreto; `?list=1` los últimos 20 sin el texto) y
 `GET|POST /api/summary-refresh` (cron con `Authorization: Bearer $CRON_SECRET`, o `x-app-key`; `?force=1`).

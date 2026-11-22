@@ -1,6 +1,6 @@
 # 11 · Aviso de fin de descanso con el teléfono bloqueado
 
-**Esfuerzo:** M–L · **Depende de:** — · **Es infraestructura para:** recordatorios, resumen semanal por
+**Estado:** implementada en v0.0.9 (falta medir en el teléfono) · **Esfuerzo:** M–L · **Depende de:** — · **Es infraestructura para:** recordatorios, resumen semanal por
 notificación (fuera de alcance aquí)
 
 ## Problema y objetivo
@@ -139,6 +139,45 @@ muestra errores. Si la alerta no se pudo registrar, el temporizador muestra un �
 - [ ] El push se envía sin dependencias nuevas en el backend (VAPID firmado con `node:crypto`), con tests
       del JWT contra un vector de prueba.
 - [ ] Ninguna alerta se envía dos veces (test de la condición `pending` → `sent`).
+
+## Notas de implementación (v0.0.9)
+
+- **Opción A** (la función espera): `POST /api/rest-alert` guarda la alerta y sigue esperando después
+  de responder con `waitUntil` de Vercel, leído del contexto de la petición
+  (`globalThis[Symbol.for('@vercel/request-context')]`, lo mismo que hace `@vercel/functions`, sin
+  agregar la dependencia). A la hora "reclama" la alerta con un `PATCH … ?status=eq.pending&end_at=lte.<ahora>`
+  que la pasa a `sent` y devuelve la fila: solo quien la reclama envía (Postgres lo hace atómico). Mover
+  la alerta lanza otra espera; la vieja no puede reclamarla. `maxDuration: 300` en `vercel.json`; los
+  descansos de más de 240 s re-arman la espera con otra llamada a la propia API (`?rearm=1`).
+- Si `waitUntil` no estuviera disponible en Vercel, la respuesta espera hasta el envío (la app no espera
+  esa respuesta). Si en la prueba con el teléfono los avisos no llegan, ese es el punto a revisar, y la
+  alternativa es la opción B (pg_cron).
+- `lib/webpush.js`: JWT ES256 con `node:crypto` (`dsaEncoding: 'ieee-p1363'`), push con `TTL: 120` y
+  `Urgency: high`, cuerpo vacío. El servidor solo envía a servicios de push conocidos (Apple, Google,
+  Mozilla, Windows). `VAPID_SUBJECT` es opcional: por defecto, la URL de la app.
+- `public/push-sw.js` (importado por el service worker de Workbox con `importScripts`): muestra
+  "Descanso terminado" con `tag: 'rest'`; si la app está a la vista la cierra enseguida. Tocarla enfoca
+  la app y va a `#/workout` (o la abre).
+- Cliente (`src/lib/push.js`): la suscripción es de cada teléfono (ajustes locales `restPush` y
+  `pushSubId`); al abrir la app se vuelve a registrar (el servidor la borra si el servicio respondió
+  404/410) y, si quitaste el permiso, el ajuste se apaga. Las llamadas de una alerta van en fila (mover
+  espera a que exista). Una alerta nueva borra las pendientes del mismo teléfono.
+- Al terminar el descanso con la app **a la vista**, la app cancela la alerta y cierra la notificación
+  si igual llega. **En segundo plano** no la toca (si no, Android, que sigue corriendo la página un rato,
+  podría cancelar el aviso que justamente se necesita).
+- Sin conexión: el descanso funciona igual y la barra muestra una campana tachada ("aviso no disponible").
+- Faltaba `api/user_settings.js` (feature 09): agregado. Con `push-subscribe` y `rest-alert` quedan 12
+  funciones, el máximo del plan Hobby.
+
+### Cómo medirlo en el teléfono (criterios 1 y 2)
+
+1. Variables en Vercel: `node scripts/vapid-keys.mjs` → `VAPID_PUBLIC_KEY` y `VAPID_PRIVATE_KEY`; redeploy.
+2. Supabase: correr el bloque de `push_subscriptions` y `rest_alerts` de `schema.sql`.
+3. En el iPhone, con GymLog abierta desde el ícono: Perfil → Ajustes → "Aviso con la app cerrada" → permitir.
+4. "Probar aviso (10 s)" y bloquear: debería llegar en ~10 s. Luego, 10 descansos de 60 s con la
+   pantalla bloqueada, anotando cuántos segundos tarda cada uno (los registros de Vercel muestran
+   `[rest-alert] <id> 201 <n> ms tarde` del lado del servidor).
+5. Lo mismo en Android con Chrome.
 
 ## Pruebas
 

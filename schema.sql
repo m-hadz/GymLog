@@ -128,3 +128,34 @@ create table if not exists user_settings (
 grant select, insert, update, delete on table user_settings to service_role;
 revoke all on table user_settings from anon, authenticated;
 alter table user_settings enable row level security;
+
+-- Aviso de fin de descanso por push (feature 11). Una fila por teléfono suscrito (id = hash del
+-- endpoint) y una por descanso en curso; las alertas de más de un día se borran solas.
+create table if not exists push_subscriptions (
+  id          text primary key,
+  endpoint    text not null,
+  p256dh      text not null,
+  auth        text not null,
+  user_agent  text not null default '',
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+grant select, insert, update, delete on table push_subscriptions to service_role;
+revoke all on table push_subscriptions from anon, authenticated;
+alter table push_subscriptions enable row level security;
+
+create table if not exists rest_alerts (
+  id              text primary key,
+  subscription_id text not null,
+  end_at          timestamptz not null,
+  status          text not null default 'pending', -- pending | sent
+  sent_at         timestamptz,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
+);
+create index if not exists rest_alerts_subscription on rest_alerts (subscription_id, status);
+
+grant select, insert, update, delete on table rest_alerts to service_role;
+revoke all on table rest_alerts from anon, authenticated;
+alter table rest_alerts enable row level security;

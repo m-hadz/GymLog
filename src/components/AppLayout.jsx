@@ -4,9 +4,9 @@
 import { useEffect, useRef } from 'react';
 import { ActionIcon, Group, Progress, Text, UnstyledButton } from '@mantine/core';
 import {
-  IconBarbell, IconBook, IconChevronUp, IconHistory, IconListDetails, IconPlayerSkipForward, IconUserCircle,
+  IconBarbell, IconBellOff, IconBook, IconChevronUp, IconHistory, IconListDetails, IconPlayerSkipForward, IconUserCircle,
 } from '@tabler/icons-react';
-import { useActiveWorkout, useNow, useRest } from '../lib/hooks.js';
+import { useActiveWorkout, useNow, useRest, useRestAlert } from '../lib/hooks.js';
 import { addRest, stopRest } from '../lib/rest-timer.js';
 import { fmtClock } from '../lib/format.js';
 import { navigate } from '../lib/router.js';
@@ -93,6 +93,7 @@ function ActiveWorkoutBar() {
 
 function RestTimerBar() {
   const { end, total } = useRest();
+  const restAlert = useRestAlert();
   const now = useNow(250, !!end);
   if (!end) return null;
   const left = Math.max(0, end - now);
@@ -102,7 +103,17 @@ function RestTimerBar() {
       <div className={classes.restBar} id="rest-bar" role="timer" aria-live="off">
         <Group justify="space-between" wrap="nowrap" gap="xs">
           <div>
-            <Text size="xs" fw={600} tt="uppercase" c="brand.2" style={{ letterSpacing: '0.06em' }}>Descanso</Text>
+            <Group gap={4} wrap="nowrap">
+              <Text size="xs" fw={600} tt="uppercase" c="brand.2" style={{ letterSpacing: '0.06em' }}>Descanso</Text>
+              {restAlert?.status === 'failed' ? (
+                <IconBellOff
+                  size={13} color="var(--mantine-color-brand-2)" aria-label="Aviso con la app cerrada no disponible (sin conexión)"
+                  data-testid="rest-alert-off"
+                >
+                  <title>Aviso con la app cerrada no disponible: solo sonará con la app abierta</title>
+                </IconBellOff>
+              ) : null}
+            </Group>
             <Text fz={26} fw={750} lh={1.1} className="tnum" c="white">{fmtClock(left)}</Text>
           </div>
           <Group gap={6} wrap="nowrap">

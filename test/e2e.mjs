@@ -18,7 +18,12 @@ const BASE = `http://localhost:${PORT}`;
 const timeout = 8000;
 
 const server = spawn(process.execPath, ['dev-server.js', '--dist'], {
-  env: { ...process.env, PORT: String(PORT), APP_PASSWORD: 'test', DATA_FILE, SUPABASE_URL: '', YOUTUBE_CHANNEL_ID: '' },
+  env: {
+    ...process.env, PORT: String(PORT), APP_PASSWORD: 'test', DATA_FILE, SUPABASE_URL: '', YOUTUBE_CHANNEL_ID: '',
+    // claves VAPID solo para pruebas (las mismas de test/push.test.js)
+    VAPID_PUBLIC_KEY: 'BOWLMMux9ZgtzXCJuCOvWDafG5nVlParQFnayMexvfusqBb1OEE2g0PnLlxgXWSpWCdNuM7daOVNwRbNhbKX9dg',
+    VAPID_PRIVATE_KEY: 'ioLc8hP9ehp5yxsjhbrd4vq9iDWlvRKzPSaTDxn3dKE',
+  },
   stdio: ['ignore', 'pipe', 'inherit'],
 });
 await new Promise((resolve, reject) => {
@@ -755,6 +760,82 @@ try {
   await page.waitForTimeout(500);
   assert.equal(db().exercise_prefs[excludedId]?.exclude_from_suggestions ?? Object.values(db().exercise_prefs).find((p) => p.id === excludedId).exclude_from_suggestions, false);
   step('reemplazar: sugerencias con última serie, hechas se quedan, deshacer, historial, plantilla, no sugerir más');
+
+  // 12h. Aviso de fin de descanso por push (feature 11), lado del teléfono. Chromium sin cabeza no
+  // tiene servicio de push: se simula la suscripción del navegador. El envío a la hora se prueba en
+  // test/push.test.js; aquí, que la app registre, mueva y cancele la alerta, y el modo sin conexión.
+  await ctx.grantPermissions(['notifications'], { origin: BASE });
+  const pp = await ctx.newPage();
+  pp.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  await pp.addInitScript(() => {
+    const sub = {
+      endpoint: 'https://fcm.googleapis.com/fcm/send/e2e-device',
+      options: { applicationServerKey: null },
+      toJSON() {
+        return { endpoint: this.endpoint, keys: { p256dh: 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM', auth: 'tBHItJI5svbpez7KI4CCXg' } };
+      },
+      unsubscribe: async () => { window.__unsubscribed = true; return true; },
+    };
+    let current = null;
+    const reg = { pushManager: { getSubscription: async () => current, subscribe: async () => { current = sub; return sub; } }, getNotifications: async () => [] };
+    Object.defineProperty(navigator.serviceWorker, 'getRegistration', { value: async () => reg });
+  });
+  await pp.goto(`${BASE}/#/profile`);
+  const tp = (id) => pp.getByTestId(id);
+  const pushSwitch = pp.getByRole('switch', { name: 'Aviso con la app cerrada' });
+  await pushSwitch.focus();
+  await pp.keyboard.press('Space');
+  await tp('rest-push-test').waitFor();
+  const subs = () => Object.values(db().push_subscriptions || {});
+  const alerts = () => Object.values(db().rest_alerts || {});
+  const waitDb = async (fn, what) => {
+    for (let i = 0; i < 40; i++) { if (fn()) return; await pp.waitForTimeout(150); }
+    throw new Error(`No se cumplió: ${what}`);
+  };
+  await waitDb(() => subs().length === 1, 'suscripción guardada');
+  assert.equal(subs()[0].endpoint, 'https://fcm.googleapis.com/fcm/send/e2e-device');
+  // Empezar un descanso: alerta pendiente a la hora de término
+  await tp('tab-train').click();
+  await tp('start-empty').click();
+  await tp('add-exercises').click();
+  await tp('picker').getByTestId('exercise-search').fill('bench press (b');
+  await tp('picker').getByTestId('exercise-row').filter({ hasText: 'Bench Press (Barbell)' }).first().click();
+  await tp('picker-add').click();
+  const pc = tp('exercise-card').first();
+  await pc.getByTestId('set-weight').first().fill('60');
+  await pc.getByTestId('set-reps').first().fill('8');
+  const t0 = Date.now();
+  await pc.getByTestId('set-check').first().click();
+  await waitDb(() => alerts().length === 1, 'alerta registrada');
+  const a1 = alerts()[0];
+  assert.equal(a1.status, 'pending');
+  assert.equal(a1.subscription_id, subs()[0].id);
+  const restMs = Date.parse(a1.end_at) - t0;
+  assert.ok(restMs > 10e3 && restMs < 1000e3, `fin del descanso: ${restMs} ms`);
+  // +15 s mueve la alerta
+  await pp.getByRole('button', { name: 'Sumar 15 segundos' }).click();
+  await waitDb(() => Date.parse(alerts()[0]?.end_at) - Date.parse(a1.end_at) > 14e3, 'alerta movida 15 s');
+  // Saltar el descanso la cancela
+  await tp('rest-skip').click();
+  await waitDb(() => alerts().length === 0, 'alerta cancelada');
+  // Sin conexión: el descanso funciona y se marca "aviso no disponible", sin errores
+  await ctx.setOffline(true);
+  await tp('add-set').first().click();
+  await pc.getByTestId('set-check').nth(1).click();
+  await tp('rest-alert-off').waitFor();
+  await pp.locator('#rest-bar').waitFor();
+  await ctx.setOffline(false);
+  await tp('rest-skip').click();
+  await tp('cancel-workout').click();
+  await tp('confirm-ok').click();
+  // Desactivar borra la suscripción del servidor y la del navegador
+  await tp('tab-profile').click();
+  await pushSwitch.focus();
+  await pp.keyboard.press('Space');
+  await waitDb(() => subs().length === 0, 'suscripción borrada');
+  assert.equal(await pp.evaluate(() => window.__unsubscribed), true);
+  await pp.close();
+  step('aviso push: activar, alerta al descansar, +15 s la mueve, saltar la cancela, sin conexión, desactivar');
 
   // 13. Lectura del día: estado vacío y error claro si falta configurar el canal
   await tab('reading');
