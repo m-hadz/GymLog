@@ -7,7 +7,9 @@ import { openSheet } from '../../components/Sheet.jsx';
 import { promptDialog, notify } from '../../components/dialogs.jsx';
 import { exerciseName, getExercise } from '../../lib/catalog.js';
 import { prefsOf, saveSettings, state } from '../../lib/data.js';
-import { useAnalysis, useCatalog, useData, useSettings } from '../../lib/hooks.js';
+import { useAnalysis, useCatalog, useData, useInsights, useSettings } from '../../lib/hooks.js';
+import { progressByPart } from '../../lib/insights.js';
+import { RATE_DOWN, RATE_UP } from '../../lib/trend.js';
 import { regionStats, regionsFor } from '../../lib/regions.js';
 import { openMuscleAssign } from '../exercises/MuscleAssign.jsx';
 import { DEFAULT_MUSCLE_TARGET, muscleStats } from '../../lib/muscles.js';
@@ -23,6 +25,89 @@ export const STATUS_COLOR = {
 const STATUS_LABEL = { low: 'Sube el volumen', fair: 'Mejorable', good: 'Bien' };
 const PERIODS = [{ value: '28', label: '4 semanas' }, { value: '7', label: '7 días' }];
 let rememberedDays = '28';
+let rememberedMode = 'sets';
+const MODES = [{ value: 'sets', label: 'Series' }, { value: 'progress', label: 'Progreso' }];
+
+// Modo "Progreso" (feature 17): ritmo mediano de los ejercicios de cada grupo
+const PROGRESS_COLOR = {
+  sube: 'var(--mantine-color-teal-6)',
+  plano: 'var(--mantine-color-yellow-5)',
+  baja: 'var(--mantine-color-orange-6)',
+};
+const PROGRESS_LABEL = { sube: 'Subiendo', plano: 'Plano', baja: 'Bajando' };
+const progressStatus = (rate) => (rate > RATE_UP ? 'sube' : rate < RATE_DOWN ? 'baja' : 'plano');
+const pctMonth = (v) => `${v > 0 ? '+' : ''}${fnum(v, 1)} %/mes`;
+
+function ProgressDetail({ part, p, close }) {
+  return (
+    <Stack gap="sm" data-testid="muscle-progress-detail">
+      <Group gap="sm" align="baseline">
+        <Text fz={32} fw={750} lh={1} className="tnum">{pctMonth(p.rate)}</Text>
+        <Text c="dimmed">mediana de {p.n} {p.n === 1 ? 'ejercicio' : 'ejercicios'}</Text>
+      </Group>
+      <Stack gap={2}>
+        {p.exercises.map((e) => (
+          <UnstyledButton key={e.id} className={classes.row} onClick={() => { close(); navigate(`/exercise/${encodeURIComponent(e.id)}`); }}>
+            <span className={classes.dot} style={{ background: PROGRESS_COLOR[e.status] }} />
+            <Text size="sm" fw={550} truncate="end" style={{ flex: 1 }}>{exerciseName(e.id)}</Text>
+            <Text size="sm" className="tnum">{pctMonth(e.rate)}</Text>
+          </UnstyledButton>
+        ))}
+      </Stack>
+      <Text size="xs" c="dimmed">
+        Ritmo del 1RM estimado de cada ejercicio de {part} en sus últimas 12 sesiones (últimos 4 meses). Solo cuentan los
+        que tienen al menos 6 sesiones en 21 días.
+      </Text>
+    </Stack>
+  );
+}
+
+function ProgressMap() {
+  const ins = useInsights();
+  const catalogVersion = useCatalog();
+  const [selected, setSelected] = useState(null);
+  const data = useMemo(
+    () => progressByPart((id) => getExercise(id)?.bodyPart),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ins, catalogVersion, state.exercises],
+  );
+  const sorted = [...data].sort((a, b) => a[1].rate - b[1].rate);
+  const open = (part) => {
+    const p = data.get(part);
+    if (!p) return;
+    setSelected(part);
+    openSheet({ title: part, onClose: () => setSelected(null), render: (close) => <ProgressDetail part={part} p={p} close={close} /> });
+  };
+  if (!data.size) {
+    return <Text size="sm" c="dimmed" data-testid="muscle-progress-empty">El progreso por músculo aparece cuando tus ejercicios tienen 6 sesiones en al menos 21 días.</Text>;
+  }
+  return (
+    <Box data-testid="muscle-progress">
+      <BodyMap colorOf={(part) => (data.has(part) ? PROGRESS_COLOR[progressStatus(data.get(part).rate)] : 'transparent')} selected={selected} onSelect={open} />
+      <Group gap="md" justify="center" mt="sm" mb="md" className={classes.legend}>
+        {['baja', 'plano', 'sube'].map((st) => (
+          <Group key={st} gap={6} wrap="nowrap">
+            <span className={classes.dot} style={{ background: PROGRESS_COLOR[st] }} />
+            <Text size="xs" c="dimmed">{st === 'baja' ? `Menos de ${fnum(RATE_DOWN, 1)} %` : st === 'plano' ? 'Plano' : `Más de +${fnum(RATE_UP, 0)} %`}</Text>
+          </Group>
+        ))}
+      </Group>
+      <Stack gap={2}>
+        {sorted.map(([part, p]) => {
+          const st = progressStatus(p.rate);
+          return (
+            <UnstyledButton key={part} className={classes.row} onClick={() => open(part)} data-testid="muscle-progress-row" data-status={st}>
+              <span className={classes.dot} style={{ background: PROGRESS_COLOR[st] }} />
+              <Text size="sm" fw={600} style={{ flex: 1 }} truncate="end">{part}</Text>
+              <Text size="sm" fw={700} className="tnum">{pctMonth(p.rate)}</Text>
+              <Text size="xs" c={st === 'baja' ? 'orange.7' : 'dimmed'} fw={st === 'baja' ? 700 : 500} className={classes.status}>{PROGRESS_LABEL[st]}</Text>
+            </UnstyledButton>
+          );
+        })}
+      </Stack>
+    </Box>
+  );
+}
 
 const perWeekText = (v) => `${fnum(v, v < 10 ? 1 : 0)}/sem`;
 
@@ -128,6 +213,7 @@ export function MuscleSection({ workouts }) {
   const settings = useSettings();
   const catalogVersion = useCatalog();
   const [days, setDays] = useState(rememberedDays);
+  const [mode, setMode] = useState(rememberedMode);
   const [selected, setSelected] = useState(null);
   const target = settings.muscleTarget || DEFAULT_MUSCLE_TARGET;
 
@@ -172,6 +258,11 @@ export function MuscleSection({ workouts }) {
       delta={lagging ? <Text size="xs" c="red.6" fw={600} mt={2}>{lagging === 1 ? 'rezagado' : 'rezagados'}</Text> : null}
       data-testid="muscle-card"
     >
+      <SegmentedControl
+        fullWidth size="xs" radius="md" mb="xs" data={MODES} value={mode}
+        onChange={(v) => { rememberedMode = v; setMode(v); }} data-testid="muscle-mode"
+      />
+      {mode === 'progress' ? <ProgressMap /> : (<>
       <SegmentedControl
         fullWidth size="xs" radius="md" mb="md" data={PERIODS} value={days}
         onChange={(v) => { rememberedDays = v; setDays(v); }}
@@ -221,6 +312,7 @@ export function MuscleSection({ workouts }) {
           </Stack>
         </Box>
       ) : null}
+      </>)}
     </ChartCard>
   );
 }

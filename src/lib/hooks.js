@@ -6,6 +6,7 @@ import { restChannel, getRest } from './rest-timer.js';
 import { alertChannel, getAlert } from './push.js';
 import { analysisWorkouts } from './effective.js';
 import { stallMap } from './stalls.js';
+import { insights } from './insights.js';
 import { streakStats } from './streak.js';
 import { syncedSettings } from './data.js';
 
@@ -25,6 +26,12 @@ export function useAnalysis() {
 }
 
 // Estancamiento por ejercicio (feature 06)
+// Análisis del historial (features 17, 23–26): tendencias, índice, factores, orden y metas
+export function useInsights() {
+  useAnalysis();
+  return insights();
+}
+
 export function useStalls() {
   useAnalysis();
   return stallMap();

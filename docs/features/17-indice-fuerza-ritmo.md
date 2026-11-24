@@ -1,6 +1,6 @@
 # 17 · Índice de fuerza y ritmo de progreso
 
-**Estado:** propuesta (ronda 2, 2026-11-22) · **Esfuerzo:** M · **Depende de:** — (mejor con 16, que limpia
+**Estado:** implementada (rama `v0.2-analitica`, 2026-11-24; ver "Cómo quedó") · **Esfuerzo:** M · **Depende de:** — (mejor con 16, que limpia
 los datos) · **Relacionada con:** 06 (estancamiento), 07 (resumen), 08 (mapa muscular)
 
 ## Problema y objetivo
@@ -79,6 +79,43 @@ fuerza global**, todo calculado en el cliente con lo que ya se guarda.
     últimas 8 semanas: verde > 1 %/mes, gris entre −0,5 y 1, naranja < −0,5.
   - La hoja del músculo lista sus ejercicios por ritmo.
 
+## Cómo quedó (cambios respecto de la propuesta, por análisis del historial real)
+
+Calibrado en local con el historial real (62 entrenamientos, 2026-07-13 a 2026-11-23, sin subirlo):
+
+- **Ruido medido:** la mediana del error absoluto de una sesión contra su tendencia local es **2,8 %**
+  (rms 5,7 %). Confirma que no hay que mirar sesiones sueltas.
+- **Paso del índice:** media recortada (10 % por lado) en vez de mediana. Con 3–5 ejercicios por día, la
+  mediana descartaba casi toda la información.
+- **Fase de aprendizaje:** las **3 primeras sesiones** de cada ejercicio no entran al índice. Sin esto,
+  el índice daba +100 % en 4 meses mientras la mediana de los ejercicios subía +26 %: cada ejercicio
+  nuevo aporta su subida inicial por técnica, y al rotar ejercicios esas subidas se encadenan. Con 3
+  sesiones de aprendizaje queda en +60 %, coherente con la media (no la mediana) de los ritmos.
+- **El 100 es el día anterior al primer paso**, no el primer entrenamiento.
+- **Rango del ritmo:** intervalo de confianza del 90 % de Theil–Sen (método de Sen, aproximación normal
+  de Kendall). El estado ("Subiendo", "Plano", "Bajando") se marca **"incierto"** si el intervalo no lo
+  respalda. Además del mínimo de 6 sesiones se exigen **21 días** entre la primera y la última.
+- **Dónde se ve:**
+  - **Perfil → Análisis** (`#/analysis`, vista diferida): índice con su gráfico, y ranking de ritmos
+    con barra e intervalo.
+  - **Perfil → Progreso:** una entrada con el índice actual y su variación de 4 y 12 semanas. La de 12
+    semanas solo se muestra si el índice tiene esa antigüedad.
+  - **Resumen mensual y anual:** sección "Fuerza" con el índice al inicio y al final del periodo.
+- **Ficha:** línea de tendencia punteada sobre el 1RM estimado, y tarjeta "Ritmo de progreso".
+- **Mapa "Progreso":** mediana del ritmo de los ejercicios del grupo con ritmo medido (últimos 4 meses).
+  Hoy es solo por grupo; por región queda pendiente.
+- **Tramos de la feature 16:** no aplica todavía, porque 16 no está implementada.
+- **Rendimiento:** 2.000 entrenamientos sintéticos → índice, tendencias, ritmos, residuos y fórmula en
+  ~140 ms (test).
+- **Código:**
+  - `src/lib/trend.js`: puro.
+  - `src/lib/insights.js`: arma los datos y memoriza.
+  - `src/views/AnalysisView.jsx`.
+  - `src/views/exercises/ExerciseInsights.jsx`.
+  - `src/views/profile/AnalysisCard.jsx`.
+  - Modo progreso en `MuscleSection.jsx`.
+- **Tests:** `test/analytics.test.js` y la e2e "análisis".
+
 ## Casos borde
 
 - Ejercicio sin peso (peso corporal sin registro): se usa la carga efectiva; si no hay, reps.
@@ -89,24 +126,25 @@ fuerza global**, todo calculado en el cliente con lo que ya se guarda.
 
 ## Fuera de alcance
 
-- Fecha estimada para metas por ejercicio (queda para después; usa este ritmo).
+- Fecha estimada para metas por ejercicio: es la feature 26.
 - Comparar con otras personas o con estándares de fuerza.
 
 ## Criterios de aceptación
 
-- [ ] Una serie sintética que sube 2 %/mes con ruido de ±3 % da un ritmo de 2 ± 0,5 %/mes (test).
-- [ ] Un valor raro aislado (+30 %) casi no mueve el ritmo (Theil–Sen) ni la tendencia (test).
-- [ ] Con todos los ejercicios subiendo 1 % por sesión, el índice sube ~1 % por sesión. Agregar o quitar
+- [x] Una serie sintética que sube 2 %/mes con ruido de ±3 % da un ritmo de 2 ± 0,5 %/mes (test).
+- [x] Un valor raro aislado (+30 %) casi no mueve el ritmo (Theil–Sen) ni la tendencia (test).
+- [x] Con todos los ejercicios subiendo 1 % por sesión, el índice sube ~1 % por sesión. Agregar o quitar
       un ejercicio a mitad de periodo no produce un salto (test).
-- [ ] La ficha muestra la tendencia y el ritmo. Con menos de 6 sesiones dice "pocos datos".
-- [ ] El mapa en modo "Progreso" pinta en verde un grupo cuyos ejercicios suben más de 1 %/mes.
-- [ ] Con 2.000 entrenamientos de prueba, el índice y los ritmos se calculan en menos de 150 ms.
-- [ ] Corrido en local contra el historial real (sin subirlo al repo), los ejercicios con "Estancado"
-      (06) tienen un ritmo cercano a 0 o negativo.
+- [x] La ficha muestra la tendencia y el ritmo. Con menos de 6 sesiones dice "pocos datos".
+- [x] El mapa en modo "Progreso" pinta en verde un grupo cuyos ejercicios suben más de 1 %/mes.
+- [x] Con 2.000 entrenamientos de prueba, el índice y los ritmos se calculan en menos de 150 ms.
+- [x] Corrido en local contra el historial real (sin subirlo al repo): 21 ejercicios con ritmo (13
+      subiendo, 5 planos, 3 bajando), con mediana de +6 %/mes. En la e2e, el ejercicio estancado de la
+      feature 06 (Chest Press 63 × 7 plano) da ritmo 0 %/mes, "Plano".
 
 ## Pruebas
 
-- **Unitarias en `test/trend.test.js`:**
+- **Unitarias en `test/analytics.test.js`:**
   - Theil–Sen y EMA con huecos.
   - Índice encadenado.
   - Rendimiento.

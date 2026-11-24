@@ -1,0 +1,36 @@
+.card {
+  background: var(--app-surface);
+  border-color: var(--app-border);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 4px 8px;
+  margin: 0 -8px;
+  border-radius: var(--mantine-radius-md);
+}
+
+.row:active {
+  background: var(--mantine-color-default-hover);
+}
+
+.bar {
+  height: 4px;
+  margin-top: 4px;
+  border-radius: 2px;
+  background: var(--mantine-color-default-border);
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--mantine-color-teal-6);
+}
+
+.barFill[data-neg] {
+  background: var(--mantine-color-orange-6);
+}

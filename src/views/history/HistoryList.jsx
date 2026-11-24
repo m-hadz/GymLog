@@ -10,6 +10,7 @@ import { computePRs, prCount, workoutVolume, workoutDuration, bestSet } from '..
 import { dayKey, fmtDate, fmtDuration, fmtSet, fmtTime, fmtVolume, plural } from '../../lib/format.js';
 import { Page, PageHeader } from '../../components/PageHeader.jsx';
 import { EmptyState } from '../../components/ui.jsx';
+import { ScoreBadge } from './SessionScore.jsx';
 import classes from './history.module.css';
 
 const PAGE = 30;
@@ -37,11 +38,14 @@ export function WorkoutCard({ w, marks }) {
             {cap(fmtDate(w.started_at, { weekday: 'long', day: 'numeric', month: 'short' }).replace('.', ''))} · {fmtTime(w.started_at)}
           </Text>
         </Box>
-        {prs ? (
-          <Badge color="yellow" variant="light" size="md" leftSection={<IconTrophy size={13} />} className="tnum" style={{ flex: 'none' }}>
-            {prs} {prs === 1 ? 'récord' : 'récords'}
-          </Badge>
-        ) : null}
+        <Group gap={6} wrap="nowrap" style={{ flex: 'none' }}>
+          <ScoreBadge wid={w.id} />
+          {prs ? (
+            <Badge color="yellow" variant="light" size="md" leftSection={<IconTrophy size={13} />} className="tnum" style={{ flex: 'none' }}>
+              {prs} {prs === 1 ? 'récord' : 'récords'}
+            </Badge>
+          ) : null}
+        </Group>
       </Group>
 
       <Group gap="md" mt={10} mb={10} className={classes.metrics}>

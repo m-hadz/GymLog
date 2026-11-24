@@ -20,6 +20,7 @@ import { confirmDialog, notify, promptDialog } from '../../components/dialogs.js
 import { getExercise } from '../../lib/catalog.js';
 import { WorkoutMuscles } from './WorkoutMuscles.jsx';
 import { ProgramResult } from '../programs/ProgramViews.jsx';
+import { SessionScore } from './SessionScore.jsx';
 import classes from './history.module.css';
 
 const TYPE_COLOR = { W: 'orange', D: 'grape', F: 'red' };
@@ -303,6 +304,7 @@ export function WorkoutDetail({ id, query }) {
           </StatGrid>
         </Box>
 
+        <SessionScore w={w} />
         <RecordsCard w={w} marks={marks} />
         <WorkoutMuscles w={w} />
         {prev ? <CompareCard w={w} prev={prev} /> : null}

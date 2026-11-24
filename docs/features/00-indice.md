@@ -64,7 +64,7 @@ el contexto de arriba. Las 01–12 se mantienen como registro de lo implementado
 | 6 | [14](14-descanso-visible-y-siguiente.md) | Descanso que se nota con la app abierta, y qué sigue | S–M | 11 |
 | 7 | [16](16-datos-limpios.md) | Datos limpios: errores de tipeo, "otra máquina" y deshacer | S–M | base común A |
 | 8 | [15](15-entrenamiento-agil.md) | Entrenamiento de 14 ejercicios más ágil (plegar, saltar, reordenar, hora de cada serie) | M | — |
-| 9 | [17](17-indice-fuerza-ritmo.md) | Índice de fuerza y ritmo de progreso (tendencia, %/mes, mapa por progreso) | M | mejor con 16 |
+| 9 | [17](17-indice-fuerza-ritmo.md) | Índice de fuerza y ritmo de progreso (tendencia, %/mes, mapa por progreso) ✅ v0.2 | M | mejor con 16 |
 | 10 | [22](22-salud-y-atajos.md) | Apple Salud con Atajos: peso diario, enviar el entrenamiento, respaldo a iCloud | S | 03; mejor con 19 |
 
 Primero lo que protege los datos y la app (20, 21, 18, 19); después lo que más se nota en el gimnasio
@@ -73,9 +73,9 @@ Primero lo que protege los datos y la app (20, 21, 18, 19); después lo que más
 **Quedaron fuera de la ronda 2:**
 - Aviso diario "Hoy toca" con número en el ícono (push con contenido, RFC 8291).
 - Calendario suscrito (ICS) para verlo en widgets y en el reloj.
-- Efecto del orden de los ejercicios y del descanso (2 o 3 días) en el rendimiento.
-- Calibrar la fórmula reps → 1RM con el historial propio.
-- Metas por ejercicio con fecha estimada (usaría el ritmo de 17).
+- Efecto del orden de los ejercicios y del descanso (2 o 3 días) en el rendimiento → se hizo como 23 y 24.
+- Calibrar la fórmula reps → 1RM con el historial propio → se hizo como 25.
+- Metas por ejercicio con fecha estimada (usaría el ritmo de 17) → se hizo como 26.
 - Escuchar la lectura del día.
 - Compartir un entrenamiento como texto o imagen.
 - Cerrar las hojas deslizando hacia abajo, respetar "Reducir movimiento" y el tamaño de letra de iOS.
@@ -148,3 +148,22 @@ tipo de equipo.
 - [ ] `lowerLoad`: con barra 20 kg y discos estándar, 100 kg − 10 % → 90 kg; en una máquina con pesos
       conocidos 57 y 63 y mínimo aumento 2, 63 − 10 % (56,7) → 57.
 - [ ] La pregunta del mínimo aumento aparece una sola vez por ejercicio y la respuesta queda guardada.
+
+## Analítica (v0.2, rama `v0.2-analitica`)
+
+Pedido del 2026-11-24: que toda decisión de la app salga de un análisis y que todo dato registrado
+sirva para uno. Se calibró en local con el historial real, sin subirlo. **Regla común:** cada cifra va
+con su margen; un efecto se afirma solo si el intervalo (corregido por comparaciones múltiples) no
+cruza 0, y si no, se dice "sin diferencia detectable".
+
+| # | Feature | Qué decide |
+|---|---|---|
+| [17](17-indice-fuerza-ritmo.md) | Índice de fuerza y ritmo de progreso | Qué progresa y qué no (también en el mapa) |
+| [23](23-rendimiento-sesion-factores.md) | Rendimiento de la sesión y qué lo explica | Si la sesión fue buena para ti; qué factores te afectan |
+| [24](24-efecto-del-orden.md) | Efecto del orden | Aviso en vivo solo donde el orden te afecta |
+| [25](25-formula-personal.md) | Fórmula personal reps → 1RM | El 1RM de toda la app (récords, objetivo, reinicio, metas) |
+| [26](26-metas-por-ejercicio.md) | Metas por ejercicio con fecha estimada | Meta sugerida, fecha con rango, logro automático |
+
+Vista nueva: **Perfil → Análisis** (`#/analysis`). Datos nuevos: hora de cada serie (`at`), metas y
+fórmula en `user_settings.data`. Sin tablas nuevas ni DDL.
+

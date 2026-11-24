@@ -1,14 +1,27 @@
 // Cálculos: 1RM estimado, volumen, récords personales e historial por ejercicio.
 
 // Fórmula de Brzycki: peso × 36 / (37 − reps). Para 1 rep devuelve el peso.
-export function e1rm(weight, reps) {
+export function brzycki(weight, reps) {
   if (!weight || !reps || reps <= 0) return 0;
   if (reps === 1) return weight;
   return (weight * 36) / (37 - Math.min(reps, 30));
 }
 
-// Peso estimado para N reps a partir de un 1RM (inverso de Brzycki)
-export const weightForReps = (oneRm, reps) => (reps === 1 ? oneRm : (oneRm * (37 - reps)) / 36);
+// Ajuste personal por reps (feature 25): factor multiplicativo calibrado con tu historial. Por
+// defecto 1 (Brzycki puro); la app lo registra con setRepAdjust (ver effective.js).
+let repAdjust = () => 1;
+export function setRepAdjust(fn) { repAdjust = typeof fn === 'function' ? fn : () => 1; }
+
+// 1RM estimado: Brzycki con tu ajuste personal. Toda la app (récords, objetivo para superar,
+// reinicio, comparación en vivo, tendencias) usa esta función.
+export function e1rm(weight, reps) {
+  const b = brzycki(weight, reps);
+  // nunca menos que el peso levantado (con 1 rep, el 1RM es el peso)
+  return b && reps > 1 ? Math.max(weight, b * repAdjust(reps)) : b;
+}
+
+// Peso estimado para N reps a partir de un 1RM (inverso de e1rm)
+export const weightForReps = (oneRm, reps) => (reps === 1 ? oneRm : (oneRm * (37 - reps)) / 36 / repAdjust(reps));
 
 // Serie efectiva: hecha, no de calentamiento y con reps (o con tiempo, en ejercicios por tiempo)
 export const isWorking = (s) => s && s.done !== false && s.type !== 'W' && ((s.reps || 0) > 0 || (s.seconds || 0) > 0);
