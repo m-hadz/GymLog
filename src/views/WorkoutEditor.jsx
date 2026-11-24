@@ -27,6 +27,7 @@ import { finishProgramWorkout, programOfTemplate, reprocessProgramWorkout } from
 import { ExerciseBlock } from './workout/ExerciseBlock.jsx';
 import { openRestTimer } from './workout/sheets.jsx';
 import classes from './workout/workout.module.css';
+import { checkGoals } from '../lib/insights.js';
 
 // ¿Es el primer ejercicio de su grupo muscular en el entrenamiento? (calentamiento, feature 02)
 const partOf = (e) => { const p = getExercise(e.exercise_id)?.bodyPart; return !p || p === 'Otro' ? e.exercise_id : p; };
@@ -133,6 +134,7 @@ function Editor({ mode, doc, update, onSave, onCancel, title }) {
     }
     final.ended_at = new Date().toISOString();
     upsert('workouts', final);
+    checkGoals(final.id); // metas logradas hoy (feature 26): se muestran en el resumen
     // Día de un programa (feature 12): progresión y siguiente día; su plantilla la genera el programa
     const inProgram = !!programOfTemplate(final.template_id);
     if (inProgram) finishProgramWorkout(final);
@@ -363,6 +365,7 @@ function WorkoutEditInner({ w }) {
     const final = finalizeEdited(doc);
     if (!final) return;
     upsert('workouts', final);
+    checkGoals(final.id);
     reprocessProgramWorkout(final); // si era el último día de un programa, se recalcula la progresión
     notify.success('Cambios guardados');
     back();
@@ -415,6 +418,7 @@ export function PastWorkoutView({ date, tpl }) {
     if (!final) return;
     if (!final.exercises.length) { notify.warn('Anota al menos una serie'); return; }
     upsert('workouts', final);
+    checkGoals(final.id);
     navigate(`/workout/${final.id}?done=1`, { replace: true });
   };
   return <Editor mode="edit" doc={doc} update={update} onSave={save} onCancel={() => goBack('/calendar')} title="Registrar entrenamiento" />;

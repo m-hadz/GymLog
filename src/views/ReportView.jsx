@@ -10,7 +10,7 @@ import { Page, PageHeader } from '../components/PageHeader.jsx';
 import { DeltaBadge, EmptyState, StatGrid } from '../components/ui.jsx';
 import { ChartCard, fnum, vol, volAxis } from '../charts/charts.jsx';
 import { HBarList, PeriodBarChart } from '../charts/bars.jsx';
-import { useAnalysis, useCatalog } from '../lib/hooks.js';
+import { useAnalysis, useCatalog, useInsights } from '../lib/hooks.js';
 import { exerciseName, getExercise } from '../lib/catalog.js';
 import { kindOf } from '../lib/effective.js';
 import { MIN_YEAR_WORKOUTS, monthReport, reportPeriods, yearReport } from '../lib/report.js';
@@ -20,6 +20,8 @@ import { state, syncedSettings } from '../lib/data.js';
 import classes from './report.module.css';
 
 import { monthNameOf as monthName } from './profile/reportNames.js';
+import { goals } from '../lib/insights.js';
+import { indexAt } from '../lib/trend.js';
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const pad = (n) => String(n).padStart(2, '0');
 const shortDay = (d) => fmtDate(d, { day: 'numeric', month: 'short' }).replace('.', '');
@@ -187,10 +189,39 @@ function Stalls({ r }) {
   );
 }
 
+// Índice de fuerza en el periodo y metas logradas (features 17 y 26)
+function Strength({ r }) {
+  const ins = useInsights();
+  const start = r.kind === 'month' ? new Date(r.year, r.month - 1, 1) : new Date(r.year, 0, 1);
+  const end = r.kind === 'month' ? new Date(r.year, r.month, 1) : new Date(r.year + 1, 0, 1);
+  const inPeriod = ins.index.filter((p) => p.t >= +start && p.t < +end);
+  const before = indexAt(ins.index, +start - 1);
+  const from = before ?? inPeriod[0]?.value;
+  const to = inPeriod.at(-1)?.value;
+  const done = goals().filter((g) => g.done_at && Date.parse(g.done_at) >= +start && Date.parse(g.done_at) < +end);
+  if ((!from || !to || from === to) && !done.length) return null;
+  const change = from && to ? (to / from - 1) * 100 : null;
+  return (
+    <Section title="Fuerza" subtitle="Índice de fuerza: todos tus ejercicios en una cifra (Perfil → Análisis)" data-testid="report-strength">
+      {change != null ? (
+        <Text size="sm" data-testid="report-index">
+          Índice {fnum(from, 0)} → <b>{fnum(to, 0)}</b> ({change > 0 ? '+' : ''}{fnum(change, 1)} %)
+        </Text>
+      ) : null}
+      {done.map((g) => (
+        <Text key={g.id} size="sm" mt={4} data-testid="report-goal">
+          Meta lograda: {exerciseName(g.ex)} {fnum(g.weight)} kg × {g.reps}
+        </Text>
+      ))}
+    </Section>
+  );
+}
+
 function Common({ r }) {
   return (
     <>
       <Constancy r={r} />
+      <Strength r={r} />
       <Records r={r} />
       {r.topExercises.length ? (
         <Section title="Ejercicios más hechos" subtitle="Por series efectivas" data-testid="report-top">

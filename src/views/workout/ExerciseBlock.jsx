@@ -33,6 +33,8 @@ import {
 import { DEFAULT_WARMUP_REST } from '../../lib/warmup.js';
 import { openPlates, openRestPicker } from './sheets.jsx';
 import classes from './workout.module.css';
+import { insights } from '../../lib/insights.js';
+import { orderAdjust } from '../../lib/factors.js';
 
 // La ficha trae gráficos (Recharts): se carga recién al abrirla.
 const ExerciseDetail = lazy(() => import('../exercises/ExerciseDetail.jsx').then((m) => ({ default: m.ExerciseDetail })));
@@ -310,6 +312,18 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
       stalled: !!stall, resetPct: (settings.resetPct ?? 10) / 100,
     });
   }, [isActive, prescribed, settings.suggest, settings.bar, settings.plates, settings.resetPct, workouts, ex.exercise_id, docId, templateId, prefs, category, barbell, kind, stall]);
+  // Efecto del orden (feature 24): solo si en tu historial este ejercicio rinde distinto según el
+  // puesto (con intervalo que no cruza 0) y hoy va en otro puesto que el habitual
+  const orderNote = useMemo(() => {
+    if (!isActive || timed) return null;
+    const o = insights().order.byExercise.get(ex.exercise_id);
+    const shift = ei - (o?.usual ?? ei);
+    if (!o?.real || !shift) return null;
+    const pct = (orderAdjust(insights().order, ex.exercise_id, shift) - 1) * 100;
+    if (Math.abs(pct) < 1) return null;
+    return { shift, pct };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive, timed, ex.exercise_id, ei, workouts]);
   const goalIdx = goal ? ex.sets.findIndex((s) => s.type !== 'W' && s.type !== 'D') : -1;
   // Opciones: reinicio (si está estancado, va primero), la principal y la alternativa
   const goalOptions = !goal ? [] : [
@@ -391,6 +405,8 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
     isActive ? '40px' : null,
   ].filter(Boolean).join(' ');
 
+  // Hora de cada serie (en vivo): con ella se mide el descanso real y su efecto (feature 23)
+  const stamp = () => (isActive ? { at: new Date().toISOString() } : {});
   const toggle = (si) => {
     const s = ex.sets[si];
     const p = prevA[si];
@@ -400,7 +416,7 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
       const fromTimer = t?.key === timerKey(si) ? stopSetTimer() : 0;
       const seconds = fromTimer || s.seconds || ph.seconds || null;
       if (!seconds) { notify.warn('Ingresa el tiempo o usa el cronómetro'); return; }
-      const next = { ...s, weight: s.weight || ph.weight || null, reps: null, seconds, done: true };
+      const next = { ...s, weight: s.weight || ph.weight || null, reps: null, seconds, done: true, ...stamp() };
       next.fb = setFeedback(ex.exercise_id, next, p, docId, before);
       if (!next.fb) delete next.fb;
       update((d) => { d.exercises[ei].sets[si] = next; });
@@ -411,7 +427,7 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
       const ph = (prescribed && s.target) || g || p || s.target || {};
       const reps = s.reps ?? ph.reps ?? null;
       if (reps == null) { notify.warn('Ingresa las repeticiones'); return; }
-      const next = { ...s, weight: s.weight ?? ph.weight ?? 0, reps, done: true };
+      const next = { ...s, weight: s.weight ?? ph.weight ?? 0, reps, done: true, ...stamp() };
       if (g) next.target = { weight: g.weight, reps: g.reps, source: goalSource };
       next.fb = setFeedback(ex.exercise_id, next, p, docId, before);
       if (!next.fb) delete next.fb;
@@ -419,7 +435,7 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
       if (next.fb === 'pr') notify.record(`${name}: ${fmtSet(next)}`);
       startRest(s.type === 'W' ? Math.min(settings.warmupRest ?? DEFAULT_WARMUP_REST, restFor) : restFor);
     } else {
-      update((d) => { const x = d.exercises[ei].sets[si]; x.done = false; delete x.fb; });
+      update((d) => { const x = d.exercises[ei].sets[si]; x.done = false; delete x.fb; delete x.at; });
     }
   };
 
@@ -635,6 +651,12 @@ function ExerciseBlockInner({ ex, ei, count, mode, docId, templateId, before, fi
             {goal.source === 'pausa' ? ' (iguala tu 1RM)' : ''}
             {goal.atMax ? ' · Estás en el tope de la máquina' : ''}
           </Text>
+          {orderNote ? (
+            <Text className={classes.goalAsk} style={{ textDecoration: 'none' }} data-testid="order-note">
+              Hoy va {Math.abs(orderNote.shift)} {Math.abs(orderNote.shift) === 1 ? 'puesto' : 'puestos'} {orderNote.shift > 0 ? 'más tarde' : 'antes'} que
+              de costumbre: en tu historial eso es {orderNote.pct > 0 ? '+' : ''}{fmtNum(orderNote.pct, 1)} % de rendimiento.
+            </Text>
+          ) : null}
           {askIncrement ? (
             <UnstyledButton className={classes.goalAsk} onClick={openPrefs} data-testid="goal-ask">
               ¿Cuánto es lo mínimo que puedes subirle? (usando {fmtNum(defaultIncrement(category), 2)} kg)

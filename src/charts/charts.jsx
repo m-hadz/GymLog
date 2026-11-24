@@ -167,15 +167,17 @@ export function niceScale(lo, hi, count = 4) {
  * @param {number} [p.height]
  * @param {boolean} [p.markBest]  línea punteada en la mejor marca
  */
+// Con `trend` en los puntos se dibuja además la tendencia (línea punteada, sin relleno)
 export function TrendChart({ points, format, axisFormat = format, color = 'brand.5', height = 200, markBest = true }) {
-  const data = useMemo(() => points.map((p) => ({ t: +p.date, value: p.value, label: p.label })), [points]);
+  const data = useMemo(() => points.map((p) => ({ t: +p.date, value: p.value, label: p.label, trend: p.trend })), [points]);
+  const withTrend = points.length > 2 && points.some((p) => p.trend != null);
   if (!points.length) return <Text size="sm" c="dimmed" py="xl" ta="center">Sin datos en este periodo.</Text>;
 
   let [x0, x1] = [data[0].t, data.at(-1).t];
   if (x0 === x1) { x0 -= 7 * 864e5; x1 += 7 * 864e5; }
   const spanDays = (x1 - x0) / 864e5;
   const tickFmt = (t) => (spanDays > 300 ? dateMonth(new Date(t)) : dateShort(new Date(t)));
-  const values = data.map((d) => d.value);
+  const values = data.flatMap((d) => (withTrend && d.trend != null ? [d.value, d.trend] : [d.value]));
   const lo = Math.min(...values), hi = Math.max(...values);
   const pad = (hi - lo) * 0.12;
   const y = niceScale(Math.max(0, lo - pad), hi + pad);
@@ -193,7 +195,9 @@ export function TrendChart({ points, format, axisFormat = format, color = 'brand
         h={height}
         data={data}
         dataKey="t"
-        series={[{ name: 'value', color, label: 'Valor' }]}
+        series={withTrend
+          ? [{ name: 'value', color, label: 'Valor' }, { name: 'trend', color: 'gray.6', label: 'Tendencia', strokeDasharray: '5 4' }]
+          : [{ name: 'value', color, label: 'Valor' }]}
         curveType="monotone"
         strokeWidth={2.5}
         fillOpacity={0.5}
@@ -226,11 +230,18 @@ export function TrendChart({ points, format, axisFormat = format, color = 'brand
           offset: 14,
           content: ({ active, payload }) => {
             const d = active && payload?.[0]?.payload;
-            return d ? <TooltipCard value={format(d.value)} lines={[dateLong(new Date(d.t)), d.label]} /> : null;
+            return d ? (
+              <TooltipCard
+                value={format(d.value)}
+                lines={[dateLong(new Date(d.t)), d.label, withTrend && d.trend != null ? `Tendencia: ${format(d.trend)}` : null]}
+              />
+            ) : null;
           },
         }}
         areaChartProps={{ margin: { top: 16, right: 8, left: -4, bottom: 0 }, accessibilityLayer: true }}
-        areaProps={{ animationDuration: 800, animationEasing: 'ease-out' }}
+        areaProps={(sr) => (sr.name === 'trend'
+          ? { animationDuration: 800, fillOpacity: 0, strokeWidth: 1.75, dot: false, activeDot: false }
+          : { animationDuration: 800, animationEasing: 'ease-out' })}
       />
       {data.length === 1 ? (
         <Text size="xs" c="dimmed" ta="center" className={classes.hint}>Una sola sesión: registra más para ver la tendencia</Text>

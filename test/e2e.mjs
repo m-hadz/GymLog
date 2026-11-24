@@ -982,6 +982,82 @@ try {
   ]);
   step('plantilla normal en % del máximo: 75 % × 5+ → 75 kg; "Actualizar plantilla" la deja en %');
 
+  // 14. Análisis (features 17, 23–26): historial de 11 sesiones en subida de 3 ejercicios →
+  // índice, ritmo, factores, orden, fórmula; meta con fecha que se logra al guardar; puntaje.
+  {
+    const rowsA = ['Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Weight Unit,Reps,Distance,Seconds,Notes,Workout Notes,RPE'];
+    for (let i = 0; i < 11; i++) {
+      const d = new Date(Date.now() - (34 - 3 * i) * 864e5);
+      const at = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} 07:00:00`;
+      rowsA.push(`${at},"Análisis",50m,"Bench Press (Barbell)",1,${60 + 1.25 * i},kg,8,0,0,"","",`);
+      rowsA.push(`${at},"Análisis",50m,"Squat (Barbell)",1,${80 + 2.5 * i},kg,8,0,0,"","",`);
+      rowsA.push(`${at},"Análisis",50m,"Shrug (Barbell)",1,${100 + 2.5 * i},kg,10,0,0,"","",`);
+    }
+    const csvA = join(TMP, 'analysis.csv');
+    writeFileSync(csvA, rowsA.join('\n'));
+    await tab('profile');
+    await page.setInputFiles('input[accept*=csv]', csvA);
+    await confirmUntil(text('Importados'));
+    await visible(tid('analysis-entry').getByText(/índice de fuerza \d+/));
+    await tid('analysis-entry').click();
+    await visible(tid('index-card'));
+    await visible(tid('rate-row').filter({ hasText: 'Bench Press' }));
+    assert.equal(await tid('rate-row').filter({ hasText: 'Bench Press' }).first().getAttribute('data-status'), 'sube');
+    assert.ok(await tid('rate-row').count() >= 3);
+    await visible(tid('factors-card'));
+    await visible(tid('order-card'));
+    await visible(tid('formula-card'));
+    await shot('14-analisis');
+    // Fórmula: elegir "Siempre Brzycki" se sincroniza
+    await tid('formula-toggle').getByText('Siempre Brzycki').click();
+    await expectUntil(() => db().user_settings?.me?.data?.formula === 'off', 'fórmula sincronizada');
+    await tid('formula-toggle').getByText('Usar la mía si es confiable').click();
+    await expectUntil(() => db().user_settings?.me?.data?.formula === 'auto', 'fórmula auto');
+    // Mapa del cuerpo en modo Progreso
+    await tab('profile');
+    await tid('muscle-mode').getByText('Progreso').click();
+    await visible(tid('muscle-progress-row'));
+    await tid('muscle-mode').getByText('Series').click();
+    // Meta en la ficha: 75 × 8 con fecha estimada
+    await tab('exercises');
+    await tid('exercise-search').fill('bench press (b');
+    await tid('exercise-row').filter({ hasText: 'Bench Press (Barbell)' }).first().click();
+    await page.getByRole('tab', { name: 'Gráficas' }).click();
+    await visible(tid('exercise-progress'));
+    assert.match(await tid('rate-status').innerText(), /Subiendo/);
+    await tid('xgoal-add').click();
+    await tid('xgoal-weight').fill('75');
+    await tid('xgoal-reps').fill('8');
+    await tid('xgoal-save').click();
+    await visible(tid('xgoal-box'));
+    assert.equal(await tid('xgoal-box').getAttribute('data-status'), 'en_camino');
+    assert.match(await tid('xgoal-eta').innerText(), /Fecha estimada/);
+    await expectUntil(() => db().user_settings?.me?.data?.goals?.length === 1, 'meta sincronizada');
+    await shot('14-meta');
+    // Entrenamiento que la logra: 77,5 × 8, con la hora de la serie
+    await tab('train');
+    await tid('start-empty').click();
+    await tid('add-exercises').click();
+    await tid('picker').getByTestId('exercise-search').fill('bench press (b');
+    await tid('picker').getByTestId('exercise-row').filter({ hasText: 'Bench Press (Barbell)' }).first().click();
+    await tid('picker-add').click();
+    const bp = cards().first();
+    await bp.getByTestId('set-weight').first().fill('77.5');
+    await bp.getByTestId('set-reps').first().fill('8');
+    await bp.getByTestId('set-check').first().click();
+    await tid('finish-workout').click();
+    await confirmUntil(text('¡Entrenamiento guardado!'));
+    await visible(tid('session-score'));
+    await visible(tid('xgoal-reached'));
+    await expectUntil(() => !!db().user_settings?.me?.data?.goals?.[0]?.done_at, 'meta lograda guardada');
+    const lastW = Object.values(db().workouts).sort((a, b) => (a.started_at < b.started_at ? 1 : -1))[0];
+    assert.ok(lastW.exercises[0].sets[0].at, 'la serie guarda su hora');
+    await shot('14-puntaje');
+    await tab('history');
+    await visible(tid('score-badge'));
+    step('análisis: índice, ritmo, factores, orden, fórmula, mapa de progreso, meta con fecha lograda, puntaje, hora de la serie');
+  }
+
   // 13. Lectura del día: estado vacío y error claro si falta configurar el canal
   await tab('reading');
   await visible(text('Todavía no hay resúmenes'));

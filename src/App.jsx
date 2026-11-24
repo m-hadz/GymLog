@@ -24,6 +24,7 @@ const ExercisesView = lazy(() => import('./views/ExercisesView.jsx').then((m) =>
 const ExerciseDetailView = lazy(() => import('./views/ExercisesView.jsx').then((m) => ({ default: m.ExerciseDetailView })));
 const ProfileView = lazy(() => import('./views/ProfileView.jsx').then((m) => ({ default: m.ProfileView })));
 // Resumen mensual y anual (feature 07)
+const AnalysisView = lazy(() => import('./views/AnalysisView.jsx').then((m) => ({ default: m.AnalysisView })));
 const ReportView = lazy(() => import('./views/ReportView.jsx').then((m) => ({ default: m.ReportView })));
 const BodyView = lazy(() => import('./views/BodyView.jsx').then((m) => ({ default: m.BodyView })));
 // Lectura del día (incluye react-markdown): también diferida.
@@ -44,6 +45,7 @@ const ROUTES = [
   [/^exercise\/(.+)$/, 'exercises', (m) => <ExerciseDetailView key={m[1]} id={decodeURIComponent(m[1])} />],
   [/^profile$/, 'profile', () => <ProfileView />],
   [/^body$/, 'profile', () => <BodyView />],
+  [/^analysis$/, 'profile', () => <AnalysisView />],
   [/^report\/(\d{4})(?:-(\d{2}))?$/, 'profile', (m) => <ReportView key={m[0]} year={Number(m[1])} month={m[2] ? Number(m[2]) : null} />],
   [/^reading$/, 'reading', (m, q) => <ReadingView key={q.get('id') || 'last'} id={q.get('id')} />],
   [/^login$/, '', () => <LoginView />, { bare: true }],

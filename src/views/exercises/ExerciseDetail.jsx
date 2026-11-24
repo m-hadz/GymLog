@@ -26,6 +26,9 @@ import { openExerciseForm } from '../../components/ExercisePicker.jsx';
 import { ExercisePrefsForm } from './ExercisePrefs.jsx';
 import { MuscleAssignForm } from './MuscleAssign.jsx';
 import { TrainingMaxForm } from './TrainingMax.jsx';
+import { ExerciseProgress } from './ExerciseInsights.jsx';
+import { exerciseInsight } from '../../lib/insights.js';
+import { formulaActive } from '../../lib/effective.js';
 import classes from './ExerciseDetail.module.css';
 
 const TABS = [['about', 'Descripción'], ['history', 'Historial'], ['charts', 'Gráficas'], ['records', 'Registros']];
@@ -98,7 +101,7 @@ export function ExerciseDetail({ id, stickyTop = 0 }) {
           <Tabs.Panel key={value} value={value} pt="sm" className="app-enter">
             {value === 'about' && <About ex={ex} id={id} name={name} note={prefs?.note} />}
             {value === 'history' && <History id={id} sessions={sessions} workouts={workouts} kind={kind} />}
-            {value === 'charts' && <Charts sessions={sessions} k={k} />}
+            {value === 'charts' && <Charts sessions={sessions} k={k} id={id} name={name} />}
             {value === 'records' && <Records sessions={sessions} k={k} />}
           </Tabs.Panel>
         ))}
@@ -312,7 +315,7 @@ function History({ id, sessions, workouts, kind }) {
 const LOAD_LABEL = { peso_reps: 'Peso máximo', lastre: 'Lastre máximo', asistido: 'Carga máxima (PC − asistencia)' };
 const secsAxis = (v) => fmtSecs(v);
 
-function Charts({ sessions, k }) {
+function Charts({ sessions, k, id, name }) {
   const { weighted, kind } = k;
   const [range, setRange] = useState(lastRange);
   const onRange = (v) => { lastRange = v; setRange(v); };
@@ -345,10 +348,14 @@ function Charts({ sessions, k }) {
     cards = [<Chart key="reps" title="Máx. repeticiones en una serie" points={pts} format={reps} axisFormat={(v) => fnum(v, 0)} />];
   } else {
     const ws = sess.filter((s) => s.best);
+    // Tendencia (feature 17): línea punteada sobre el 1RM estimado
+    const trendAt = new Map((exerciseInsight(id)?.pts || []).map((p) => [p.t, p.trend]));
     const topLoad = (s) => s.working.reduce((a, x) => (recordLoad(x) > recordLoad(a) ? x : a), s.working[0]);
     cards = [
+      <ExerciseProgress key="progress" id={id} name={name} goals={kind === 'peso_reps'} />,
       <Chart key="1rm" title="Mejor serie (1RM estimado)" format={kg} axisFormat={kgAxis}
-        points={ws.map((s) => pt(s, Math.round(s.bestE1rm * 10) / 10, `Mejor serie: ${fmtSet(s.best)}`))} />,
+        points={ws.map((s) => ({ ...pt(s, Math.round(s.bestE1rm * 10) / 10, `Mejor serie: ${fmtSet(s.best)}`), trend: trendAt.get(Date.parse(s.workout.started_at)) }))} />,
+      formulaActive() ? <Text key="formula" size="xs" c="dimmed" mt={-4}>1RM estimado con tu fórmula personal (Perfil → Análisis).</Text> : null,
       kind === 'peso_corporal'
         ? <Chart key="reps" title="Máx. repeticiones en una serie" format={reps} axisFormat={(v) => fnum(v, 0)}
           points={ws.map((s) => pt(s, Math.max(...s.working.map((x) => x.reps || 0)), plural(s.working.length, 'serie', 'series')))} />
